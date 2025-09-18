@@ -1,8 +1,163 @@
-/*
+.weather-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background-color: var(--background-secondary);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.weather-widget__segment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      to right,
+      var(--weather-segment-color, var(--interactive-accent)) 0%,
+      var(--weather-segment-color, var(--interactive-accent)) var(--weather-sun-gradient-width, 9%),
+      transparent var(--weather-sun-gradient-width, 9%)
+    ),
+    var(--weather-segment-background, var(--background-primary-alt));
+  color: var(--text-on-accent, var(--text-normal));
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 
-If your plugin does not need CSS, delete this file.
+.weather-widget__label {
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
 
-*/
+.weather-widget__footer {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.weather-widget__debug {
+  margin-top: 12px;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.weather-settings__section {
+  margin-bottom: 24px;
+}
+
+.weather-settings__hint {
+  margin: 4px 0 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.weather-settings__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.weather-settings__table th,
+.weather-settings__table td {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.weather-settings__table-input {
+  width: 100%;
+}
+
+.weather-settings__table-input--color {
+  padding: 0;
+  height: 32px;
+}
+
+.weather-settings__table-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.weather-settings__table-button {
+  background: var(--background-modifier-border);
+  border: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.weather-settings__table-button:hover {
+  background: var(--background-modifier-border-hover);
+}
+
+.weather-settings__table-button--icon {
+  width: 28px;
+  min-width: 28px;
+  padding: 4px 0;
+  text-align: center;
+}
+
+.weather-settings__empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.weather-settings__color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.weather-settings__color-grid .setting-item {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--background-primary-alt);
+}
+
+.weather-settings__color-grid .setting-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.weather-settings__color-grid .setting-item-info,
+.weather-settings__color-grid .setting-item-control {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.weather-settings__sun-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.weather-settings__sun-row .weather-settings__color-grid {
+  flex: 1 1 320px;
+}
+
+.weather-settings__sun-width.setting-item {
+  flex: 0 1 220px;
+  margin: 0;
+}
+
+
+.weather-settings__sun-width .setting-item-info {
+  margin: 0 0 6px;
+}
+
+.weather-settings__sun-width .setting-item-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weather-settings__sun-width input[type="number"] {
+  width: 80px;
+}
+
