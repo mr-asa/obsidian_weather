@@ -775,17 +775,49 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     tempInput.value = String(stop.temperature);
 
-    tempInput.addEventListener("input", () => {
+    const commitTemperature = () => {
 
-      const parsed = Number(tempInput.value);
+      const parsed = Number(tempInput.value.trim());
 
-      if (Number.isFinite(parsed)) {
-
-        stop.temperature = Math.max(TEMP_MIN, Math.min(TEMP_MAX, Math.round(parsed)));
+      if (!Number.isFinite(parsed)) {
 
         tempInput.value = String(stop.temperature);
 
-        this.persistTemperatureGradient();
+        return;
+
+      }
+
+      const clamped = Math.max(TEMP_MIN, Math.min(TEMP_MAX, Math.round(parsed)));
+
+      if (clamped === stop.temperature) {
+
+        tempInput.value = String(stop.temperature);
+
+        return;
+
+      }
+
+      stop.temperature = clamped;
+
+      tempInput.value = String(stop.temperature);
+
+      this.persistTemperatureGradient();
+
+    };
+
+    tempInput.addEventListener("change", commitTemperature);
+
+    tempInput.addEventListener("blur", commitTemperature);
+
+    tempInput.addEventListener("keydown", (event) => {
+
+      if (event.key === "Enter") {
+
+        event.preventDefault();
+
+        commitTemperature();
+
+        tempInput.blur();
 
       }
 
