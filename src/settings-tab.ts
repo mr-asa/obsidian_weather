@@ -145,17 +145,45 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     this.renderLocationsSection(containerEl, strings);
 
-    this.renderTimeColorsSection(containerEl, strings);
+    this.renderGradientPreviewSection(containerEl, strings);
 
-    this.renderWeatherPaletteSection(containerEl, strings);
+    const collapsibleRoot = containerEl.createDiv({ cls: "weather-settings__collapsible-group" });
 
-    this.renderTemperatureGradientSection(containerEl, strings);
+    this.renderCollapsibleSection(collapsibleRoot, strings.settings.timePalette.heading, strings.settings.timePalette.description, (body) => {
 
-    this.renderSunLayerSection(containerEl, strings);
+      this.renderTimePaletteContent(body, strings);
 
-    this.renderGradientSection(containerEl, strings);
+    });
 
-    this.renderDisplaySection(containerEl, strings);
+    this.renderCollapsibleSection(collapsibleRoot, strings.settings.weatherPalette.heading, strings.settings.weatherPalette.description, (body) => {
+
+      this.renderWeatherPaletteContent(body, strings);
+
+    });
+
+    this.renderCollapsibleSection(collapsibleRoot, strings.settings.temperatureGradient.heading, strings.settings.temperatureGradient.description, (body) => {
+
+      this.renderTemperatureGradientContent(body, strings);
+
+    });
+
+    this.renderCollapsibleSection(collapsibleRoot, strings.settings.sunLayer.heading, strings.settings.sunLayer.description, (body) => {
+
+      this.renderSunLayerContent(body, strings);
+
+    });
+
+    this.renderCollapsibleSection(collapsibleRoot, strings.settings.gradients.heading, strings.settings.gradients.description, (body) => {
+
+      this.renderGradientControlsContent(body, strings);
+
+    });
+
+    this.renderCollapsibleSection(collapsibleRoot, strings.settings.display.heading, strings.settings.display.description, (body) => {
+
+      this.renderDisplayContent(body, strings);
+
+    });
 
   }
 
@@ -379,9 +407,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     });
 
-    this.renderCoordinateCell(row, city, "latitude", LAT_MIN, LAT_MAX);
+    this.renderCoordinateCell(row, city, index, "latitude", LAT_MIN, LAT_MAX);
 
-    this.renderCoordinateCell(row, city, "longitude", LON_MIN, LON_MAX);
+    this.renderCoordinateCell(row, city, index, "longitude", LON_MIN, LON_MAX);
 
     const actionsCell = row.insertCell();
 
@@ -445,6 +473,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     city: CityLocation,
 
+    index: number,
+
     key: "latitude" | "longitude",
 
     min: number,
@@ -465,9 +495,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     input.value = String(city[key]);
 
-    input.addEventListener("input", () => {
+    const commitValue = (raw: string) => {
 
-      const sanitized = input.value.replace(/,/g, ".").trim();
+      const sanitized = raw.replace(/,/g, ".").trim();
 
       if (sanitized === "" || sanitized === "-" || sanitized === "+") {
 
@@ -485,11 +515,35 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
       const clamped = Math.max(min, Math.min(max, parsed));
 
+      const list = this.plugin.settings.cities;
+
+      const target = list[index];
+
+      if (!target) {
+
+        return;
+
+      }
+
+      target[key] = clamped;
+
       city[key] = clamped;
 
       input.value = String(clamped);
 
       void this.plugin.saveSettings();
+
+    };
+
+    input.addEventListener("input", () => {
+
+      commitValue(input.value);
+
+    });
+
+    input.addEventListener("change", () => {
+
+      commitValue(input.value);
 
     });
 
@@ -513,15 +567,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   }
 
-  private renderTimeColorsSection(containerEl: HTMLElement, strings: LocaleStrings): void {
+  private renderTimePaletteContent(parent: HTMLElement, strings: LocaleStrings): void {
 
-    const section = containerEl.createDiv({ cls: "weather-settings__section" });
-
-    section.createEl("h3", { text: strings.settings.timePalette.heading });
-
-    section.createEl("p", { text: strings.settings.timePalette.description, cls: "weather-settings__hint" });
-
-    const grid = section.createDiv({ cls: "weather-settings__color-grid" });
+    const grid = parent.createDiv({ cls: "weather-settings__color-grid" });
 
     TIME_OF_DAY_KEYS.forEach((phase) => {
 
@@ -567,17 +615,11 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   }
 
-  private renderWeatherPaletteSection(containerEl: HTMLElement, strings: LocaleStrings): void {
-
-    const section = containerEl.createDiv({ cls: "weather-settings__section" });
-
-    section.createEl("h3", { text: strings.settings.weatherPalette.heading });
-
-    section.createEl("p", { text: strings.settings.weatherPalette.description, cls: "weather-settings__hint" });
+  private renderWeatherPaletteContent(parent: HTMLElement, strings: LocaleStrings): void {
 
     WEATHER_CATEGORIES.forEach((category) => {
 
-      new Setting(section)
+      new Setting(parent)
 
         .setName(strings.weatherConditions[category])
 
@@ -619,15 +661,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   }
 
-  private renderTemperatureGradientSection(containerEl: HTMLElement, strings: LocaleStrings): void {
+  private renderTemperatureGradientContent(parent: HTMLElement, strings: LocaleStrings): void {
 
-    const section = containerEl.createDiv({ cls: "weather-settings__section" });
-
-    section.createEl("h3", { text: strings.settings.temperatureGradient.heading });
-
-    section.createEl("p", { text: strings.settings.temperatureGradient.description, cls: "weather-settings__hint" });
-
-    const table = section.createEl("table", { cls: "weather-settings__table" });
+    const table = parent.createEl("table", { cls: "weather-settings__table" });
 
     const head = table.createTHead().insertRow();
 
@@ -647,7 +683,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     });
 
-    new Setting(section)
+    new Setting(parent)
 
       .addButton((button) => {
 
@@ -667,7 +703,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
             });
 
-            this.sortTemperatureGradient();
+            this.persistTemperatureGradient(true);
 
             this.refreshPreviewRow();
 
@@ -701,7 +737,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
         tempInput.value = String(stop.temperature);
 
-        this.sortTemperatureGradient();
+        this.persistTemperatureGradient();
 
       }
 
@@ -723,11 +759,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
       stop.color = colorInput.value;
 
-      void this.plugin.saveSettings();
-
-      this.updateTemperatureGradientPreview?.();
-
-      this.refreshPreviewRow();
+      this.persistTemperatureGradient();
 
     });
 
@@ -771,21 +803,25 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
       this.plugin.settings.temperatureGradient.splice(index, 1);
 
-      void this.plugin.saveSettings();
-
-      this.display();
+      this.persistTemperatureGradient(true);
 
     });
 
   }
 
-  private sortTemperatureGradient(): void {
-
-    this.plugin.settings.temperatureGradient.sort((a, b) => a.temperature - b.temperature);
+  private persistTemperatureGradient(refreshTable = false): void {
 
     void this.plugin.saveSettings();
 
-    this.display();
+    this.updateTemperatureGradientPreview?.();
+
+    this.refreshPreviewRow();
+
+    if (refreshTable) {
+
+      this.display();
+
+    }
 
   }
 
@@ -803,21 +839,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     [list[index], list[target]] = [list[target], list[index]];
 
-    void this.plugin.saveSettings();
-
-    this.display();
+    this.persistTemperatureGradient(true);
 
   }
 
-  private renderSunLayerSection(containerEl: HTMLElement, strings: LocaleStrings): void {
+  private renderSunLayerContent(parent: HTMLElement, strings: LocaleStrings): void {
 
-    const section = containerEl.createDiv({ cls: "weather-settings__section" });
-
-    section.createEl("h3", { text: strings.settings.sunLayer.heading });
-
-    section.createEl("p", { text: strings.settings.sunLayer.description, cls: "weather-settings__hint" });
-
-    const colorGrid = section.createDiv({ cls: "weather-settings__color-grid" });
+    const colorGrid = parent.createDiv({ cls: "weather-settings__color-grid" });
 
     ([
 
@@ -849,7 +877,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     });
 
-    this.addNumberSetting(section, strings.settings.sunLayer.transitionLabel, this.plugin.settings.sunLayer.transitionMinutes, (value) => {
+    this.addNumberSetting(parent, strings.settings.sunLayer.transitionLabel, this.plugin.settings.sunLayer.transitionMinutes, (value) => {
 
       const normalized = Math.max(1, Math.round(value));
 
@@ -859,7 +887,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 1, step: "1" });
 
-    this.addNumberSetting(section, strings.settings.sunLayer.widthLabel, this.plugin.settings.sunLayer.width, (value) => {
+    this.addNumberSetting(parent, strings.settings.sunLayer.widthLabel, this.plugin.settings.sunLayer.width, (value) => {
 
       const normalized = Math.max(1, Math.round(value));
 
@@ -869,7 +897,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 1, step: "1" });
 
-    this.addNumberSetting(section, strings.settings.sunLayer.softnessInnerLabel, this.plugin.settings.sunLayer.softnessInner, (value) => {
+    this.addNumberSetting(parent, strings.settings.sunLayer.softnessInnerLabel, this.plugin.settings.sunLayer.softnessInner, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -879,7 +907,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.05" });
 
-    this.addNumberSetting(section, strings.settings.sunLayer.softnessOuterLabel, this.plugin.settings.sunLayer.softnessOuter, (value) => {
+    this.addNumberSetting(parent, strings.settings.sunLayer.softnessOuterLabel, this.plugin.settings.sunLayer.softnessOuter, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -889,7 +917,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.05" });
 
-    this.addNumberSetting(section, strings.settings.sunLayer.twilightHighlightLabel, this.plugin.settings.sunLayer.twilightHighlight, (value) => {
+    this.addNumberSetting(parent, strings.settings.sunLayer.twilightHighlightLabel, this.plugin.settings.sunLayer.twilightHighlight, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -899,7 +927,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    this.addNumberSetting(section, strings.settings.sunLayer.dayHighlightLabel, this.plugin.settings.sunLayer.dayHighlight, (value) => {
+    this.addNumberSetting(parent, strings.settings.sunLayer.dayHighlightLabel, this.plugin.settings.sunLayer.dayHighlight, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -909,7 +937,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    this.addNumberSetting(section, strings.settings.sunLayer.nightHighlightLabel, this.plugin.settings.sunLayer.nightHighlight, (value) => {
+    this.addNumberSetting(parent, strings.settings.sunLayer.nightHighlightLabel, this.plugin.settings.sunLayer.nightHighlight, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -919,9 +947,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    this.renderAlphaInputs(section, strings.settings.sunLayer.dayAlphaLabel, this.plugin.settings.sunLayer.alphaDay);
+    this.renderAlphaInputs(parent, strings.settings.sunLayer.dayAlphaLabel, this.plugin.settings.sunLayer.alphaDay);
 
-    this.renderAlphaInputs(section, strings.settings.sunLayer.nightAlphaLabel, this.plugin.settings.sunLayer.alphaNight);
+    this.renderAlphaInputs(parent, strings.settings.sunLayer.nightAlphaLabel, this.plugin.settings.sunLayer.alphaNight);
 
   }
 
@@ -1011,6 +1039,34 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   }
 
+  private renderCollapsibleSection(
+
+    containerEl: HTMLElement,
+
+    summary: string,
+
+    description: string | null,
+
+    renderer: (body: HTMLDivElement) => void,
+
+  ): void {
+
+    const detailsEl = containerEl.createEl("details", { cls: "weather-settings__section weather-settings__section--collapsible" });
+
+    detailsEl.createEl("summary", { text: summary });
+
+    const body = detailsEl.createDiv({ cls: "weather-settings__section-body" });
+
+    if (description && description.trim().length > 0) {
+
+      body.createEl("p", { text: description, cls: "weather-settings__hint" });
+
+    }
+
+    renderer(body);
+
+  }
+
   private renderGradientPreviewSection(parent: HTMLElement, strings: LocaleStrings): void {
 
     const previewSection = parent.createDiv({ cls: "weather-settings__preview-section" });
@@ -1081,33 +1137,35 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
       .setDesc(strings.settings.preview.temperatureHint);
 
-    temperatureSetting.addText((text) => {
+    let temperatureValue: HTMLSpanElement;
 
-      text.inputEl.type = "number";
+    const updateTemperatureLabel = () => {
 
-      text.inputEl.step = "1";
+      if (!temperatureValue) {
 
-      text.inputEl.min = String(TEMP_MIN);
+        return;
 
-      text.inputEl.max = String(TEMP_MAX);
+      }
 
-      text.setValue(String(this.sampleTemperature));
+      const formatted = `${this.sampleTemperature > 0 ? '+' : ''}${this.sampleTemperature}°`;
 
-      text.onChange((value) => {
+      temperatureValue.textContent = formatted;
 
-        const numeric = Number(value);
+    };
 
-        if (!Number.isFinite(numeric)) {
+    temperatureSetting.addSlider((slider) => {
 
-          return;
+      slider.setLimits(TEMP_MIN, TEMP_MAX, 1);
 
-        }
+      slider.setValue(this.sampleTemperature);
 
-        const clamped = Math.max(TEMP_MIN, Math.min(TEMP_MAX, Math.round(numeric)));
+      slider.setDynamicTooltip();
 
-        this.sampleTemperature = clamped;
+      slider.onChange((value) => {
 
-        text.setValue(String(clamped));
+        this.sampleTemperature = Math.round(value);
+
+        updateTemperatureLabel();
 
         this.refreshPreviewRow();
 
@@ -1115,6 +1173,11 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     });
 
+    temperatureValue = temperatureSetting.controlEl.createSpan({ cls: "weather-settings__preview-value" });
+
+    temperatureSetting.controlEl.querySelector("input[type=\"range\"]")?.classList.add("weather-settings__preview-slider--temperature");
+
+    updateTemperatureLabel();
     const weatherSetting = new Setting(controls)
 
       .setName(strings.settings.preview.weatherLabel)
@@ -1179,19 +1242,16 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   }
 
-  private renderGradientSection(containerEl: HTMLElement, strings: LocaleStrings): void {
-    const section = containerEl.createDiv({ cls: "weather-settings__section" });
+  private renderGradientControlsContent(parent: HTMLElement, strings: LocaleStrings): void {
 
-    section.createEl("h3", { text: strings.settings.gradients.heading });
+    this.gradientPreviewEl = this.createGradientPreview(parent);
 
-    section.createEl("p", { text: strings.settings.gradients.description, cls: "weather-settings__hint" });
-
-    this.gradientPreviewEl = this.createGradientPreview(section);
     this.gradientPreviewEl.style.backgroundSize = "100% 100%, 100% 100%, 100% 100%";
 
     this.refreshGradientPreview();
 
-    this.renderGradientAccordion(section, strings);
+    this.renderGradientAccordion(parent, strings);
+
   }
 
   private renderTimeGradientSection(parent: HTMLElement, strings: LocaleStrings): void {
@@ -1452,7 +1512,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     const categoryStyle = this.plugin.settings.categoryStyles[this.sampleWeatherCategory];
     const weatherIcon = categoryStyle?.icon?.trim() || PREVIEW_FALLBACK_ICON;
-    const weatherLabel = strings.weatherConditions[this.sampleWeatherCategory] ?? this.sampleWeatherCategory;
+    const weatherLabel = this.plugin.translateWeatherCategory(this.sampleWeatherCategory);
 
     if (this.previewWeatherIconEl) {
       this.previewWeatherIconEl.textContent = weatherIcon;
@@ -1644,15 +1704,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
     );
   }
 
-  private renderDisplaySection(containerEl: HTMLElement, strings: LocaleStrings): void {
+  private renderDisplayContent(parent: HTMLElement, strings: LocaleStrings): void {
 
-    const section = containerEl.createDiv({ cls: "weather-settings__section" });
-
-    section.createEl("h3", { text: strings.settings.display.heading });
-
-    section.createEl("p", { text: strings.settings.display.description, cls: "weather-settings__hint" });
-
-    this.addNumberSetting(section, strings.settings.display.verticalFadeTop, this.plugin.settings.verticalFade.top, (value) => {
+    this.addNumberSetting(parent, strings.settings.display.verticalFadeTop, this.plugin.settings.verticalFade.top, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -1662,7 +1716,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    this.addNumberSetting(section, strings.settings.display.verticalFadeMiddle, this.plugin.settings.verticalFade.middle, (value) => {
+    this.addNumberSetting(parent, strings.settings.display.verticalFadeMiddle, this.plugin.settings.verticalFade.middle, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -1672,7 +1726,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    this.addNumberSetting(section, strings.settings.display.leftPanelWidth, this.plugin.settings.leftPanel.width, (value) => {
+    this.addNumberSetting(parent, strings.settings.display.leftPanelWidth, this.plugin.settings.leftPanel.width, (value) => {
 
       const normalized = Math.max(0, value);
 
@@ -1682,7 +1736,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, step: "1" });
 
-    this.addNumberSetting(section, strings.settings.display.leftPanelHighlight, this.plugin.settings.leftPanel.minHighlight, (value) => {
+    this.addNumberSetting(parent, strings.settings.display.leftPanelHighlight, this.plugin.settings.leftPanel.minHighlight, (value) => {
 
       const normalized = Math.max(0, Math.min(1, value));
 
@@ -1692,7 +1746,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    this.addNumberSetting(section, strings.settings.display.daySpanMin, this.plugin.settings.daySpan.min, (value) => {
+    this.addNumberSetting(parent, strings.settings.display.daySpanMin, this.plugin.settings.daySpan.min, (value) => {
 
       const normalized = Math.max(0, Math.min(this.plugin.settings.daySpan.max, value));
 
@@ -1702,7 +1756,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    this.addNumberSetting(section, strings.settings.display.daySpanMax, this.plugin.settings.daySpan.max, (value) => {
+    this.addNumberSetting(parent, strings.settings.display.daySpanMax, this.plugin.settings.daySpan.max, (value) => {
 
       const normalized = Math.max(this.plugin.settings.daySpan.min, Math.min(1, value));
 
@@ -1712,7 +1766,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     }, { min: 0, max: 1, step: "0.01" });
 
-    new Setting(section)
+    new Setting(parent)
 
       .setName(strings.settings.display.showDateLabel)
 
@@ -1791,4 +1845,16 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
 

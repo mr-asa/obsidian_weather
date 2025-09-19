@@ -20,6 +20,8 @@ import {
 
   type CityLocation,
 
+  type WeatherCategory,
+
 } from "./settings";
 
 import { WeatherSettingsTab } from "./settings-tab";
@@ -50,6 +52,10 @@ export default class WeatherPlugin extends Plugin {
 
   private refreshIntervalId: number | null = null;
 
+  private widgetMinuteIntervalId: number | null = null;
+
+  private lastWidgetMinute: number | null = null;
+
   async onload(): Promise<void> {
 
     this.weatherService = new WeatherService();
@@ -70,6 +76,8 @@ export default class WeatherPlugin extends Plugin {
 
     this.scheduleWeatherRefresh();
 
+    this.scheduleWidgetMinuteUpdates();
+
   }
 
   onunload(): void {
@@ -85,6 +93,16 @@ export default class WeatherPlugin extends Plugin {
       this.refreshIntervalId = null;
 
     }
+
+    if (this.widgetMinuteIntervalId !== null) {
+
+      window.clearInterval(this.widgetMinuteIntervalId);
+
+      this.widgetMinuteIntervalId = null;
+
+    }
+
+    this.lastWidgetMinute = null;
 
     this.weatherService?.clear();
 
@@ -147,6 +165,12 @@ export default class WeatherPlugin extends Plugin {
   getWeatherSnapshot(cityId: string): WeatherSnapshot | undefined {
 
     return this.weatherData.get(cityId);
+
+  }
+
+  translateWeatherCategory(category: WeatherCategory): string {
+
+    return this.strings.weatherConditions[category] ?? category;
 
   }
 
@@ -478,9 +502,7 @@ export default class WeatherPlugin extends Plugin {
 
             : defaults.temperatureGradient[0]?.color ?? "#9CA3AF",
 
-        }))
-
-        .sort((a, b) => a.temperature - b.temperature);
+        }));
 
     }
 
@@ -512,6 +534,8 @@ export default class WeatherPlugin extends Plugin {
 
     this.scheduleWeatherRefresh();
 
+    this.scheduleWidgetMinuteUpdates();
+
     await this.refreshWeatherData();
 
     this.requestWidgetRefresh();
@@ -541,6 +565,44 @@ export default class WeatherPlugin extends Plugin {
     this.refreshIntervalId = id;
 
     this.registerInterval(id);
+
+  }
+
+  private scheduleWidgetMinuteUpdates(): void {
+
+    if (this.widgetMinuteIntervalId !== null) {
+
+      window.clearInterval(this.widgetMinuteIntervalId);
+
+      this.widgetMinuteIntervalId = null;
+
+    }
+
+    const tick = () => {
+
+      const now = new Date();
+
+      const currentMinute = now.getMinutes();
+
+      if (this.lastWidgetMinute === currentMinute) {
+
+        return;
+
+      }
+
+      this.lastWidgetMinute = currentMinute;
+
+      this.requestWidgetRefresh();
+
+    };
+
+    tick();
+
+    const intervalId = window.setInterval(tick, 15_000);
+
+    this.widgetMinuteIntervalId = intervalId;
+
+    this.registerInterval(intervalId);
 
   }
 
