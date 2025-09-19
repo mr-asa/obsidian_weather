@@ -31,6 +31,7 @@ export class WeatherWidgetView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    this.widget.unmount();
     this.containerEl.empty();
   }
 

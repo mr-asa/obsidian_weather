@@ -544,3 +544,11 @@
 .weather-settings__preview-slider--temperature {
   flex: 1 1 auto;
 }
+
+.weather-settings__icon-input {
+  width: 5ch;
+  min-width: 5ch;
+  max-width: 5ch;
+  text-align: center;
+}
+

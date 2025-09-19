@@ -27,6 +27,7 @@ import {
 import { WeatherSettingsTab } from "./settings-tab";
 
 import { WEATHER_WIDGET_VIEW_TYPE, WeatherWidgetView } from "./ui/weather-widget-view";
+import type { WeatherWidget } from "./ui/weather-widget";
 
 import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
 
@@ -49,6 +50,8 @@ export default class WeatherPlugin extends Plugin {
   private weatherService: WeatherService;
 
   private weatherData = new Map<string, WeatherSnapshot>();
+
+  private widgetInstances = new Set<WeatherWidget>();
 
   private refreshIntervalId: number | null = null;
 
@@ -134,19 +137,47 @@ export default class WeatherPlugin extends Plugin {
 
   }
 
+  registerWidget(widget: WeatherWidget): void {
+
+    this.widgetInstances.add(widget);
+
+  }
+
+  unregisterWidget(widget: WeatherWidget): void {
+
+    this.widgetInstances.delete(widget);
+
+  }
+
   requestWidgetRefresh(): void {
 
-    this.app.workspace
+    for (const widget of Array.from(this.widgetInstances)) {
 
-      .getLeavesOfType(WEATHER_WIDGET_VIEW_TYPE)
+      if (widget.isMounted()) {
 
-      .forEach((leaf) => {
+        widget.update();
 
-        const view = leaf.view as unknown as WeatherWidgetView;
+      } else {
 
-        view.refresh();
+        this.widgetInstances.delete(widget);
 
-      });
+      }
+
+    }
+
+  }
+
+  async resetSettings(): Promise<void> {
+
+    this.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as WeatherWidgetSettings;
+
+    this.lastWidgetMinute = null;
+
+    this.weatherService?.clear();
+
+    this.weatherData.clear();
+
+    await this.saveSettings();
 
   }
 

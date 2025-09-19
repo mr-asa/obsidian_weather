@@ -534,11 +534,27 @@ export class WeatherWidget {
 
   private host: HTMLElement | null = null;
 
+  private isRegistered = false;
+
   constructor(private readonly plugin: WeatherPlugin) {}
 
   mount(containerEl: HTMLElement): void {
 
-    this.host = containerEl;
+    if (this.host !== containerEl) {
+
+      this.unmount();
+
+      this.host = containerEl;
+
+    }
+
+    if (!this.isRegistered) {
+
+      this.plugin.registerWidget(this);
+
+      this.isRegistered = true;
+
+    }
 
     this.render();
 
@@ -546,13 +562,35 @@ export class WeatherWidget {
 
   update(): void {
 
-    if (!this.host) {
+    if (!this.isMounted()) {
+
+      this.unmount();
 
       return;
 
     }
 
     this.render();
+
+  }
+
+  unmount(): void {
+
+    if (this.isRegistered) {
+
+      this.plugin.unregisterWidget(this);
+
+      this.isRegistered = false;
+
+    }
+
+    this.host = null;
+
+  }
+
+  isMounted(): boolean {
+
+    return this.host != null && this.host.isConnected;
 
   }
 

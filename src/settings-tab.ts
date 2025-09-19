@@ -43,8 +43,6 @@ const TEMP_MAX = 80;
 
 const PREVIEW_DAY_START = 0.3;
 const PREVIEW_DAY_SPAN = 0.4;
-const PREVIEW_WEATHER_CATEGORY: WeatherCategory = "sunny";
-const PREVIEW_TEMPERATURE = 20;
 
 const MINUTES_IN_DAY = 1_440;
 const SECONDS_IN_DAY = 86_400;
@@ -123,6 +121,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   private updateTemperatureGradientPreview?: () => void;
 
+  private temperatureTableBody?: HTMLTableSectionElement;
+
+  private latestStrings?: LocaleStrings;
+
   constructor(app: App, plugin: WeatherPlugin) {
 
     super(app, plugin);
@@ -137,7 +139,11 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     containerEl.empty();
 
+    this.temperatureTableBody = undefined;
+
     const strings = this.plugin.getStrings();
+
+    this.latestStrings = strings;
 
     this.renderLocalizationSection(containerEl, strings);
 
@@ -184,6 +190,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
       this.renderDisplayContent(body, strings);
 
     });
+
+    this.renderResetSection(containerEl, strings);
 
   }
 
@@ -617,9 +625,11 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   private renderWeatherPaletteContent(parent: HTMLElement, strings: LocaleStrings): void {
 
+    const grid = parent.createDiv({ cls: "weather-settings__color-grid" });
+
     WEATHER_CATEGORIES.forEach((category) => {
 
-      new Setting(parent)
+      new Setting(grid)
 
         .setName(strings.weatherConditions[category])
 
@@ -639,11 +649,19 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
               this.updateTimeGradientPreview?.();
 
+              this.refreshGradientPreview();
+
               this.refreshPreviewRow();
 
             }))
 
         .addText((text) => {
+
+          text.inputEl.maxLength = 5;
+
+          text.inputEl.size = 5;
+
+          text.inputEl.classList.add("weather-settings__icon-input");
 
           text.setValue(this.plugin.settings.categoryStyles[category].icon);
 
@@ -652,6 +670,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
             this.plugin.settings.categoryStyles[category].icon = value.trim() || DEFAULT_SETTINGS.categoryStyles[category].icon;
 
             void this.plugin.saveSettings();
+
+            this.refreshPreviewRow();
 
           });
 
@@ -673,15 +693,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     head.appendChild(document.createElement("th")).textContent = strings.settings.locations.tableHeaders.actions;
 
-    const body = table.createTBody();
+    this.temperatureTableBody = table.createTBody();
 
-    this.plugin.settings.temperatureGradient.forEach((stop, index) => {
-
-      const row = body.insertRow();
-
-      this.renderTemperatureRow(row, stop, index, strings);
-
-    });
+    this.renderTemperatureTableRows(strings);
 
     new Setting(parent)
 
@@ -703,13 +717,47 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
             });
 
-            this.persistTemperatureGradient(true);
+            this.persistTemperatureGradient();
 
-            this.refreshPreviewRow();
+            this.refreshTemperatureTable();
 
           });
 
       });
+
+  }
+
+  private renderTemperatureTableRows(strings: LocaleStrings): void {
+
+    const body = this.temperatureTableBody;
+
+    if (!body) {
+
+      return;
+
+    }
+
+    body.replaceChildren();
+
+    this.plugin.settings.temperatureGradient.forEach((stop, index) => {
+
+      const row = body.insertRow();
+
+      this.renderTemperatureRow(row, stop, index, strings);
+
+    });
+
+  }
+
+  private refreshTemperatureTable(): void {
+
+    if (!this.temperatureTableBody || !this.latestStrings) {
+
+      return;
+
+    }
+
+    this.renderTemperatureTableRows(this.latestStrings);
 
   }
 
@@ -803,25 +851,23 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
       this.plugin.settings.temperatureGradient.splice(index, 1);
 
-      this.persistTemperatureGradient(true);
+      this.persistTemperatureGradient();
+
+      this.refreshTemperatureTable();
 
     });
 
   }
 
-  private persistTemperatureGradient(refreshTable = false): void {
+  private persistTemperatureGradient(): void {
 
     void this.plugin.saveSettings();
 
     this.updateTemperatureGradientPreview?.();
 
+    this.refreshGradientPreview();
+
     this.refreshPreviewRow();
-
-    if (refreshTable) {
-
-      this.display();
-
-    }
 
   }
 
@@ -839,7 +885,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     [list[index], list[target]] = [list[target], list[index]];
 
-    this.persistTemperatureGradient(true);
+    this.persistTemperatureGradient();
+
+    this.refreshTemperatureTable();
 
   }
 
@@ -1127,6 +1175,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
         this.refreshPreviewRow();
 
+        this.refreshGradientPreview();
+
       });
 
     });
@@ -1169,6 +1219,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
         this.refreshPreviewRow();
 
+        this.refreshGradientPreview();
+
       });
 
     });
@@ -1199,6 +1251,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
         this.sampleWeatherCategory = value as WeatherCategory;
 
         this.refreshPreviewRow();
+
+        this.refreshGradientPreview();
 
       });
 
@@ -1438,7 +1492,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const start = clamp(dayStart - daySpan * width, 0, 1);
     const end = clamp(dayEnd + daySpan * width, 0, 1);
     const baseColor = ensureHex(settings.timeBaseColors.day, "#87CEEB");
-    const weatherColor = ensureHex(settings.categoryStyles[PREVIEW_WEATHER_CATEGORY].color, "#60a5fa");
+    const categoryStyle = settings.categoryStyles[this.sampleWeatherCategory] ?? settings.categoryStyles.sunny;
+    const weatherColor = ensureHex(categoryStyle.color, "#60a5fa");
     const transitionColor = lerpColorGamma(baseColor, weatherColor, settings.gradients.timeBlend.mixRatio);
     return buildSoftHillGradient(transitionColor, start, end, settings.gradients.timeBlend.peakAlpha, settings.gradients.timeBlend.edgeAlpha, settings.gradients.timeBlend.steps, settings.gradients.timeBlend.power);
   }
@@ -1456,9 +1511,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const width = weather.padding * lerp(weather.widthMin, weather.widthMax, spanNorm);
     const start = clamp(dayStart - daySpan * width, 0, 1);
     const end = clamp(dayEnd + daySpan * width, 0, 1);
-    const color = ensureHex(settings.categoryStyles[PREVIEW_WEATHER_CATEGORY].color, "#60a5fa");
-    const peakAlpha = 0.9 * weather.peakScale;
-    const edgeAlpha = peakAlpha * 0.12 * weather.edgeScale;
+    const category = this.sampleWeatherCategory;
+    const categoryStyle = settings.categoryStyles[category] ?? settings.categoryStyles.sunny;
+    const color = ensureHex(categoryStyle.color, "#60a5fa");
+    const peakBase = 0.9 * (category === "cloudy" || category === "foggy" ? 0.7 : 1);
+    const peakAlpha = peakBase * weather.peakScale;
+    const edgeAlpha = peakBase * 0.12 * weather.edgeScale;
     return buildSoftHillGradient(color, start, end, peakAlpha, edgeAlpha, weather.steps, weather.power);
   }
 
@@ -1648,7 +1706,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
       rgba(0,0,0,${settings.verticalFade.top}) 100%)`;
 
     const highlight = this.computeSunHighlight(this.getTimeOfDayFromSeconds(localSeconds, sunriseSeconds, sunsetSeconds));
-    const tintColor = ensureHex(settings.categoryStyles[PREVIEW_WEATHER_CATEGORY].color, '#60a5fa');
+    const categoryStyle = settings.categoryStyles[this.sampleWeatherCategory] ?? settings.categoryStyles.sunny;
+    const tintColor = ensureHex(categoryStyle.color, '#60a5fa');
     const leftMask = `linear-gradient(90deg,
       ${rgba(tintColor, highlight)} 0%,
       ${rgba(tintColor, highlight)} ${settings.leftPanel.width}%,
@@ -1692,7 +1751,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
   private buildTemperatureGradientPreview(): string {
     const settings = this.plugin.settings;
     const temperature = settings.gradients.temperature;
-    const color = tempToColorSample(PREVIEW_TEMPERATURE, settings.temperatureGradient);
+    const color = tempToColorSample(this.sampleTemperature, settings.temperatureGradient);
     return buildSoftHillGradient(
       color,
       clamp(temperature.start, 0, 1),
@@ -1787,6 +1846,45 @@ export class WeatherSettingsTab extends PluginSettingTab {
       });
 
   }
+
+  private renderResetSection(containerEl: HTMLElement, strings: LocaleStrings): void {
+
+    const section = containerEl.createDiv({ cls: "weather-settings__section" });
+
+    section.createEl("h3", { text: strings.settings.reset.heading });
+
+    section.createEl("p", { text: strings.settings.reset.description, cls: "weather-settings__hint" });
+
+    new Setting(section)
+
+      .addButton((button) => {
+
+        button
+
+          .setButtonText(strings.actions.reset)
+
+          .setWarning()
+
+          .onClick(async () => {
+
+            if (!confirm(strings.settings.reset.confirm)) {
+
+              return;
+
+            }
+
+            button.setDisabled(true);
+
+            await this.plugin.resetSettings();
+
+            this.display();
+
+          });
+
+      });
+
+  }
+
 
   private addNumberSetting(
 

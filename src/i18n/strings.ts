@@ -121,6 +121,11 @@ export interface LocaleStrings {
       showDateLabel: string;
       showDateDescription: string;
     };
+    reset: {
+      heading: string;
+      description: string;
+      confirm: string;
+    };
   };
   actions: {
     remove: string;
@@ -274,6 +279,11 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         daySpanMax: "Maximum day span",
         showDateLabel: "Show date when different",
         showDateDescription: "Append the local date whenever it differs from your current day.",
+      },
+      reset: {
+        heading: "Reset settings",
+        description: "Restore every option to the default configuration.",
+        confirm: "Reset all settings to defaults? This action cannot be undone.",
       },
     },
     actions: {
@@ -440,6 +450,11 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         daySpanMax: "Макс. доля дневного времени",
         showDateLabel: "Показывать дату, если отличается",
         showDateDescription: "Добавлять локальную дату, когда она не совпадает с текущей.",
+      },
+      reset: {
+        heading: "Сброс настроек",
+        description: "Вернуть все параметры к значениям по умолчанию.",
+        confirm: "Сбросить все настройки к значениям по умолчанию? Действие нельзя отменить.",
       },
     },
     actions: {
