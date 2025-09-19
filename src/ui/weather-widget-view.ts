@@ -6,11 +6,12 @@ export const WEATHER_WIDGET_VIEW_TYPE = "weather-widget";
 
 export class WeatherWidgetView extends ItemView {
   private readonly plugin: WeatherPlugin;
-  private readonly widget = new WeatherWidget();
+  private readonly widget: WeatherWidget;
 
   constructor(leaf: WorkspaceLeaf, plugin: WeatherPlugin) {
     super(leaf);
     this.plugin = plugin;
+    this.widget = new WeatherWidget(plugin);
   }
 
   getViewType(): string {
@@ -26,8 +27,7 @@ export class WeatherWidgetView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    const strings = this.plugin.getStrings();
-    this.widget.mount(this.containerEl, this.plugin.settings, strings.sunPhases, strings.widget.forecastPlaceholder);
+    this.widget.mount(this.containerEl);
   }
 
   async onClose(): Promise<void> {
@@ -35,7 +35,6 @@ export class WeatherWidgetView extends ItemView {
   }
 
   refresh(): void {
-    const strings = this.plugin.getStrings();
-    this.widget.update(this.plugin.settings, strings.sunPhases, strings.widget.forecastPlaceholder);
+    this.widget.update();
   }
 }
