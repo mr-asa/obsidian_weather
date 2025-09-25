@@ -1,16 +1,16 @@
 import type WeatherPlugin from "../main";
 
-import type {
+import {
 
-  CityLocation,
+  type CityLocation,
 
-  TemperatureColorStop,
+  type TemperatureColorStop,
 
-  WeatherCategory,
+  type WeatherCategory,
 
-  WeatherWidgetSettings,
+  type WeatherWidgetSettings,
 
-  TimeOfDayKey,
+  type TimeOfDayKey,
 
 } from "../settings";
 
@@ -19,6 +19,7 @@ import type { WeatherSnapshot } from "../services/weather-service";
 import { clamp, lerp } from "../utils/math";
 
 import { ensureHex, lerpColorGamma, rgba } from "../utils/color";
+import { buildSunOverlayState, computeGradientLayers } from "../utils/widget-render";
 
 const MINUTES_IN_DAY = 1_440;
 
@@ -468,68 +469,6 @@ function timePaletteBySun(
 
 }
 
-function buildSoftHillGradient(
-
-  color: string,
-
-  leftFrac: number,
-
-  rightFrac: number,
-
-  peakAlpha: number,
-
-  edgeAlpha: number,
-
-  options: { steps: number; power: number },
-
-): string {
-
-  const normalizedLeft = clamp01(leftFrac);
-
-  const normalizedRight = clamp01(Math.max(normalizedLeft, rightFrac));
-
-  const stops: string[] = [`${rgba(color, 0)} 0%`];
-
-  for (let i = 0; i <= options.steps; i += 1) {
-
-    const t = options.steps === 0 ? 0 : i / options.steps;
-
-    const position = normalizedLeft + (normalizedRight - normalizedLeft) * t;
-
-    const envelope = Math.pow(Math.sin(Math.PI * t), options.power);
-
-    const alpha = clamp01(edgeAlpha + (peakAlpha - edgeAlpha) * envelope);
-
-    const pct = Math.round(position * 1000) / 10;
-
-    stops.push(`${rgba(color, alpha)} ${pct}%`);
-
-  }
-
-  stops.push(`${rgba(color, 0)} 100%`);
-
-  return `linear-gradient(90deg, ${stops.join(", ")})`;
-
-}
-
-function computeSunHighlight(settings: WeatherWidgetSettings, timeOfDay: TimeOfDayKey): number {
-
-  if (timeOfDay === "night") {
-
-    return Math.max(settings.leftPanel.minHighlight, settings.sunLayer.nightHighlight);
-
-  }
-
-  if (timeOfDay === "day") {
-
-    return Math.max(settings.leftPanel.minHighlight, settings.sunLayer.dayHighlight);
-
-  }
-
-  return Math.max(settings.leftPanel.minHighlight, settings.sunLayer.twilightHighlight);
-
-}
-
 export class WeatherWidget {
 
   private host: HTMLElement | null = null;
@@ -680,13 +619,9 @@ export class WeatherWidget {
 
       const sunsetMinutes = parseHmFromIsoLocal(snapshot.sunset);
 
-      const dayStartFrac = sunriseMinutes != null ? clamp01(sunriseMinutes / MINUTES_IN_DAY) : settings.daySpan.min;
 
-      const dayEndFrac = sunsetMinutes != null ? clamp01(sunsetMinutes / MINUTES_IN_DAY) : settings.daySpan.max;
 
-      const daySpan = Math.max(settings.daySpan.min, Math.min(settings.daySpan.max, dayEndFrac - dayStartFrac));
 
-      const spanNorm = clamp01((daySpan - settings.daySpan.min) / Math.max(0.0001, settings.daySpan.max - settings.daySpan.min));
 
       const palette = timePaletteBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, city.longitude);
 
@@ -694,89 +629,35 @@ export class WeatherWidget {
 
       const baseColor = lerpColorGamma(baseFallback, palette.base, 0.6);
 
-      const transitionColor = lerpColorGamma(baseColor, weatherColor, settings.gradients.timeBlend.mixRatio);
+      const temperatureColor = tempToColor(snapshot.temperature, settings.temperatureGradient);
 
-      const timeLayer = settings.gradients.timeBlend;
+      const gradientState = computeGradientLayers({
 
-      const timeWidth = timeLayer.padding * lerp(timeLayer.widthMin, timeLayer.widthMax, spanNorm);
+        settings,
 
-      const timeGradient = buildSoftHillGradient(
-
-        transitionColor,
-
-        clamp01(dayStartFrac - daySpan * timeWidth),
-
-        clamp01(dayEndFrac + daySpan * timeWidth),
-
-        timeLayer.peakAlpha,
-
-        timeLayer.edgeAlpha,
-
-        { steps: timeLayer.steps, power: timeLayer.power },
-
-      );
-
-      const weatherLayer = settings.gradients.weather;
-
-      const weatherWidth = weatherLayer.padding * lerp(weatherLayer.widthMin, weatherLayer.widthMax, spanNorm);
-
-      const weatherPeakAlpha = 0.9 * (category === "cloudy" || category === "foggy" ? 0.7 : 1);
-
-      const weatherGradient = buildSoftHillGradient(
+        baseColor,
 
         weatherColor,
 
-        clamp01(dayStartFrac - daySpan * weatherWidth),
+        temperatureColor,
 
-        clamp01(dayEndFrac + daySpan * weatherWidth),
+        sunriseMinutes,
 
-        weatherPeakAlpha * weatherLayer.peakScale,
+        sunsetMinutes,
 
-        weatherPeakAlpha * 0.12 * weatherLayer.edgeScale,
-
-        { steps: weatherLayer.steps, power: weatherLayer.power },
-
-      );
-
-      const temperatureGradient = buildSoftHillGradient(
-
-        tempToColor(snapshot.temperature, settings.temperatureGradient),
-
-        settings.gradients.temperature.start,
-
-        settings.gradients.temperature.end,
-
-        settings.gradients.temperature.peakAlpha,
-
-        settings.gradients.temperature.edgeAlpha,
-
-        {
-
-          steps: settings.gradients.temperature.steps,
-
-          power: settings.gradients.temperature.power,
-
-        },
-
-      );
+      });
 
       const row = container.createDiv({ cls: "city-row" });
 
-      row.style.background = `${temperatureGradient}, ${weatherGradient}, ${timeGradient}`;
+      row.style.backgroundColor = gradientState.backgroundColor;
 
-      row.style.backgroundBlendMode = "normal, soft-light, soft-light";
+      row.style.backgroundImage = `${gradientState.temperatureGradient}, ${gradientState.weatherGradient}`;
+
+      row.style.backgroundRepeat = "no-repeat, no-repeat";
+
+      row.style.backgroundBlendMode = "normal, normal";
 
       const overlay = row.createDiv({ cls: "sun-overlay" });
-
-      const sunLayer = settings.sunLayer;
-
-      const sunWidth = sunLayer.width;
-
-      const sunHighlight = computeSunHighlight(settings, timeOfDay);
-
-      const sunrise = parseHmFromIsoLocal(snapshot.sunrise);
-
-      const sunset = parseHmFromIsoLocal(snapshot.sunset);
 
       const nowMinutes = timezone
 
@@ -784,167 +665,42 @@ export class WeatherWidget {
 
         : minutesOfDayAtLon(new Date(), city.longitude);
 
-      const isNight = sunrise != null && sunset != null
+      const overlayState = buildSunOverlayState({
 
-        ? nowMinutes < sunrise || nowMinutes > sunset
+        settings,
 
-        : timeOfDay === "night";
+        nowMinutes,
 
-      let sunColor = ensureHex(sunLayer.colors.day, "#FFD200");
+        sunriseMinutes,
 
-      let alphaPeak = sunLayer.alphaDay.peak;
+        sunsetMinutes,
 
-      let alphaMid = sunLayer.alphaDay.mid;
+        sunPositionPercent: sunPosition,
 
-      let alphaLow = sunLayer.alphaDay.low;
+        timeOfDay,
 
-      if (sunrise != null && sunset != null) {
+        tintColor: palette.tint || weatherColor,
 
-        if (nowMinutes >= Math.max(0, sunset - sunLayer.transitionMinutes) && nowMinutes < sunset) {
+      });
 
-          const t = easeCos(1 - ((sunset - nowMinutes) / sunLayer.transitionMinutes));
+      overlay.style.background = overlayState.background;
 
-          sunColor = lerpColorGamma(sunLayer.colors.day, sunLayer.colors.sunrise, t);
+      overlay.style.backgroundBlendMode = overlayState.blendMode;
 
-          alphaPeak = sunLayer.alphaDay.peak;
+      const sunIconEl = overlay.createSpan({ cls: "sun-overlay__icon" });
 
-          alphaMid = sunLayer.alphaDay.mid;
+      sunIconEl.textContent = overlayState.icon.symbol;
 
-          alphaLow = sunLayer.alphaDay.low;
+      sunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
 
-        } else if (nowMinutes >= sunset && nowMinutes <= Math.min(1440, sunset + sunLayer.transitionMinutes)) {
+      sunIconEl.style.top = `${overlayState.icon.topPercent}%`;
 
-          const t = easeCos((nowMinutes - sunset) / sunLayer.transitionMinutes);
+      sunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
 
-          sunColor = lerpColorGamma(sunLayer.colors.sunrise, sunLayer.colors.night, t);
+      sunIconEl.style.color = overlayState.icon.color;
 
-          alphaPeak = lerp(sunLayer.alphaDay.peak, sunLayer.alphaNight.peak, t);
+      sunIconEl.style.opacity = `${overlayState.icon.opacity}`;
 
-          alphaMid = lerp(sunLayer.alphaDay.mid, sunLayer.alphaNight.mid, t);
-
-          alphaLow = lerp(sunLayer.alphaDay.low, sunLayer.alphaNight.low, t);
-
-        } else if (((sunrise - nowMinutes + MINUTES_IN_DAY) % MINUTES_IN_DAY) <= sunLayer.transitionMinutes) {
-
-          const distance = (sunrise - nowMinutes + MINUTES_IN_DAY) % MINUTES_IN_DAY;
-
-          const t = easeCos(1 - (distance / sunLayer.transitionMinutes));
-
-          sunColor = lerpColorGamma(sunLayer.colors.night, sunLayer.colors.sunrise, t);
-
-          alphaPeak = lerp(sunLayer.alphaNight.peak, sunLayer.alphaDay.peak, t);
-
-          alphaMid = lerp(sunLayer.alphaNight.mid, sunLayer.alphaDay.mid, t);
-
-          alphaLow = lerp(sunLayer.alphaNight.low, sunLayer.alphaDay.low, t);
-
-        } else if (nowMinutes >= sunrise && nowMinutes <= sunrise + sunLayer.transitionMinutes) {
-
-          const t = easeCos((nowMinutes - sunrise) / sunLayer.transitionMinutes);
-
-          sunColor = lerpColorGamma(sunLayer.colors.sunrise, sunLayer.colors.day, t);
-
-          alphaPeak = sunLayer.alphaDay.peak;
-
-          alphaMid = sunLayer.alphaDay.mid;
-
-          alphaLow = sunLayer.alphaDay.low;
-
-        } else if (isNight) {
-
-          sunColor = sunLayer.colors.night;
-
-          alphaPeak = sunLayer.alphaNight.peak;
-
-          alphaMid = sunLayer.alphaNight.mid;
-
-          alphaLow = sunLayer.alphaNight.low;
-
-        } else {
-
-          sunColor = sunLayer.colors.day;
-
-          alphaPeak = sunLayer.alphaDay.peak;
-
-          alphaMid = sunLayer.alphaDay.mid;
-
-          alphaLow = sunLayer.alphaDay.low;
-
-        }
-
-      } else if (isNight) {
-
-        sunColor = sunLayer.colors.night;
-
-        alphaPeak = sunLayer.alphaNight.peak;
-
-        alphaMid = sunLayer.alphaNight.mid;
-
-        alphaLow = sunLayer.alphaNight.low;
-
-      }
-
-      const center = Math.max(0, Math.min(100, sunPosition));
-
-      const s0 = Math.max(0, center - sunWidth);
-
-      const s1 = Math.max(0, center - sunWidth * sunLayer.softnessOuter);
-
-      const s2 = Math.max(0, center - sunWidth * sunLayer.softnessInner);
-
-      const s3 = Math.min(100, center + sunWidth * sunLayer.softnessInner);
-
-      const s4 = Math.min(100, center + sunWidth * sunLayer.softnessOuter);
-
-      const s5 = Math.min(100, center + sunWidth);
-
-      const sunGradient = `linear-gradient(90deg,
-
-        transparent 0%,
-
-        transparent ${s0}%,
-
-        ${rgba(sunColor, alphaLow)} ${s1}%,
-
-        ${rgba(sunColor, alphaMid)} ${s2}%,
-
-        ${rgba(sunColor, alphaPeak)} ${center}%,
-
-        ${rgba(sunColor, alphaMid)} ${s3}%,
-
-        ${rgba(sunColor, alphaLow)} ${s4}%,
-
-        transparent ${s5}%,
-
-        transparent 100%)`;
-
-      const verticalFade = `linear-gradient(180deg,
-
-        rgba(0,0,0,${settings.verticalFade.top}) 0%,
-
-        rgba(0,0,0,${settings.verticalFade.middle}) 20%,
-
-        rgba(0,0,0,${settings.verticalFade.middle}) 80%,
-
-        rgba(0,0,0,${settings.verticalFade.top}) 100%)`;
-
-      const highlight = computeSunHighlight(settings, timeOfDay);
-
-      const tintColor = palette.tint || weatherColor;
-
-      const leftMask = `linear-gradient(90deg,
-
-        ${rgba(tintColor, highlight)} 0%,
-
-        ${rgba(tintColor, highlight)} ${settings.leftPanel.width}%,
-
-        transparent ${settings.leftPanel.width + 5}%,
-
-        transparent 100%)`;
-
-      overlay.style.background = `${sunGradient}, ${verticalFade}, ${leftMask}`;
-
-      overlay.style.backgroundBlendMode = isNight ? "multiply, multiply, screen" : "screen, normal, screen";
 
       const nameEl = row.createDiv({ cls: "city-name" });
 

@@ -1,4 +1,4 @@
-import type { CityLocation } from "../settings";
+import type { CityLocation, WeatherProviderId } from "../settings";
 
 export interface WeatherSnapshot {
 
@@ -23,8 +23,9 @@ export interface WeatherSnapshot {
 }
 
 const OPEN_METEO_ENDPOINT = "https://api.open-meteo.com/v1/forecast";
+const OPEN_WEATHER_ENDPOINT = "https://api.openweathermap.org/data/2.5/weather";
 
-function createWeatherUrl(city: CityLocation): string {
+function createOpenMeteoUrl(city: CityLocation): string {
 
   const params = new URLSearchParams({
 
@@ -46,17 +47,149 @@ function createWeatherUrl(city: CityLocation): string {
 
 }
 
+function createOpenWeatherUrl(city: CityLocation, apiKey: string): string {
+
+  const params = new URLSearchParams({
+
+    lat: city.latitude.toString(),
+
+    lon: city.longitude.toString(),
+
+    appid: apiKey,
+
+    units: "metric",
+
+  });
+
+  return `${OPEN_WEATHER_ENDPOINT}?${params.toString()}`;
+
+}
+
+function toLocalIsoString(epochSeconds: number, offsetSeconds: number): string {
+
+  const localMillis = (epochSeconds + offsetSeconds) * 1_000;
+
+  return new Date(localMillis).toISOString();
+
+}
+
+function mapOpenWeatherToWmo(code: number | undefined | null): number | null {
+
+  if (typeof code !== "number") {
+
+    return null;
+
+  }
+
+  if (code >= 200 && code <= 232) {
+
+    return 95;
+
+  }
+
+  if (code >= 300 && code <= 321) {
+
+    return 51;
+
+  }
+
+  if (code >= 500 && code <= 504) {
+
+    return 61;
+
+  }
+
+  if (code === 511) {
+
+    return 66;
+
+  }
+
+  if (code >= 520 && code <= 531) {
+
+    return 63;
+
+  }
+
+  if (code >= 600 && code <= 602) {
+
+    return 71;
+
+  }
+
+  if (code >= 611 && code <= 622) {
+
+    return 77;
+
+  }
+
+  if (code >= 700 && code <= 781) {
+
+    return 45;
+
+  }
+
+  if (code === 800) {
+
+    return 0;
+
+  }
+
+  if (code === 801) {
+
+    return 1;
+
+  }
+
+  if (code === 802) {
+
+    return 2;
+
+  }
+
+  if (code === 803 || code === 804) {
+
+    return 3;
+
+  }
+
+  return null;
+
+}
+
 export class WeatherService {
 
   private cache = new Map<string, WeatherSnapshot>();
 
   private expiration = new Map<string, number>();
 
+  private provider: WeatherProviderId = "open-meteo";
+
+  private apiKey = "";
+
   constructor(private readonly logger: Console = console) {}
+
+  configureProvider(provider: WeatherProviderId, apiKey: string): void {
+
+    const normalizedKey = apiKey.trim();
+
+    if (this.provider !== provider || this.apiKey !== normalizedKey) {
+
+      this.provider = provider;
+
+      this.apiKey = normalizedKey;
+
+      this.clear();
+
+    }
+
+  }
 
   getSnapshot(cityId: string): WeatherSnapshot | undefined {
 
-    const snapshot = this.cache.get(cityId);
+    const key = this.cacheKey(cityId);
+
+    const snapshot = this.cache.get(key);
 
     if (!snapshot) {
 
@@ -64,13 +197,13 @@ export class WeatherService {
 
     }
 
-    const expiresAt = this.expiration.get(cityId);
+    const expiresAt = this.expiration.get(key);
 
     if (expiresAt && Date.now() > expiresAt) {
 
-      this.cache.delete(cityId);
+      this.cache.delete(key);
 
-      this.expiration.delete(cityId);
+      this.expiration.delete(key);
 
       return undefined;
 
@@ -90,13 +223,15 @@ export class WeatherService {
 
     }
 
+    const cacheKey = this.cacheKey(city.id);
+
     const ttlMinutes = Math.max(1, cacheMinutes);
 
     const now = Date.now();
 
-    const expiresAt = this.expiration.get(city.id);
+    const expiresAt = this.expiration.get(cacheKey);
 
-    const cached = this.cache.get(city.id);
+    const cached = this.cache.get(cacheKey);
 
     if (cached && expiresAt && now < expiresAt) {
 
@@ -104,7 +239,49 @@ export class WeatherService {
 
     }
 
-    const url = createWeatherUrl(city);
+    let snapshot: WeatherSnapshot | null;
+
+    if (this.provider === "openweathermap") {
+
+      snapshot = await this.fetchFromOpenWeather(city, now);
+
+    } else {
+
+      snapshot = await this.fetchFromOpenMeteo(city, now);
+
+    }
+
+    if (snapshot) {
+
+      this.cache.set(cacheKey, snapshot);
+
+      this.expiration.set(cacheKey, now + ttlMinutes * 60_000);
+
+      return snapshot;
+
+    }
+
+    return cached ?? null;
+
+  }
+
+  clear(): void {
+
+    this.cache.clear();
+
+    this.expiration.clear();
+
+  }
+
+  private cacheKey(cityId: string): string {
+
+    return `${this.provider}:${cityId}`;
+
+  }
+
+  private async fetchFromOpenMeteo(city: CityLocation, now: number): Promise<WeatherSnapshot | null> {
+
+    const url = createOpenMeteoUrl(city);
 
     try {
 
@@ -126,7 +303,7 @@ export class WeatherService {
 
       };
 
-      const snapshot: WeatherSnapshot = {
+      return {
 
         cityId: city.id,
 
@@ -148,21 +325,9 @@ export class WeatherService {
 
       };
 
-      this.cache.set(city.id, snapshot);
-
-      this.expiration.set(city.id, now + ttlMinutes * 60_000);
-
-      return snapshot;
-
     } catch (error) {
 
-      this.logger.error("WeatherService: failed to fetch", city.label, error);
-
-      if (cached) {
-
-        return cached;
-
-      }
+      this.logger.error("WeatherService: failed to fetch from Open-Meteo", city.label, error);
 
       return null;
 
@@ -170,13 +335,86 @@ export class WeatherService {
 
   }
 
-  clear(): void {
+  private async fetchFromOpenWeather(city: CityLocation, now: number): Promise<WeatherSnapshot | null> {
 
-    this.cache.clear();
+    if (!this.apiKey) {
 
-    this.expiration.clear();
+      this.logger.warn("WeatherService: OpenWeatherMap API key is missing", city.label);
+
+      return null;
+
+    }
+
+    const url = createOpenWeatherUrl(city, this.apiKey);
+
+    try {
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+
+        throw new Error(`OpenWeatherMap response ${response.status}`);
+
+      }
+
+      const data = await response.json() as {
+
+        main?: { temp?: number };
+
+        weather?: Array<{ id?: number }>;
+
+        sys?: { sunrise?: number; sunset?: number };
+
+        timezone?: number;
+
+      };
+
+      const timezoneOffset = typeof data?.timezone === "number" ? data.timezone : 0;
+
+      const sunriseIso = typeof data?.sys?.sunrise === "number"
+
+        ? toLocalIsoString(data.sys.sunrise, timezoneOffset)
+
+        : null;
+
+      const sunsetIso = typeof data?.sys?.sunset === "number"
+
+        ? toLocalIsoString(data.sys.sunset, timezoneOffset)
+
+        : null;
+
+      const wmoCode = mapOpenWeatherToWmo(data?.weather?.[0]?.id);
+
+      return {
+
+        cityId: city.id,
+
+        fetchedAt: now,
+
+        latitude: city.latitude,
+
+        longitude: city.longitude,
+
+        timezone: null,
+
+        sunrise: sunriseIso,
+
+        sunset: sunsetIso,
+
+        temperature: typeof data?.main?.temp === "number" ? data.main.temp : null,
+
+        weatherCode: wmoCode,
+
+      };
+
+    } catch (error) {
+
+      this.logger.error("WeatherService: failed to fetch from OpenWeatherMap", city.label, error);
+
+      return null;
+
+    }
 
   }
 
 }
-

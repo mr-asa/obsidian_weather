@@ -42,7 +42,7 @@
 
   display: grid;
 
-  grid-template-columns: minmax(140px, 1.1fr) minmax(160px, 1fr) minmax(200px, 1.4fr) minmax(80px, 0.6fr);
+  grid-template-columns: minmax(160px, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(100px, 0.8fr);
 
   align-items: center;
 
@@ -104,6 +104,8 @@
 
   font-size: 0.9rem;
 
+  justify-self: center;
+
 }
 
 
@@ -155,6 +157,26 @@
   pointer-events: none;
 
   z-index: 0;
+
+}
+
+
+
+.sun-overlay__icon {
+
+  position: absolute;
+
+  transform: translate(-50%, -50%);
+
+  font-size: 1.4rem;
+
+  line-height: 1;
+
+  pointer-events: none;
+
+  transition: transform 0.3s ease, top 0.3s ease, left 0.3s ease, opacity 0.3s ease;
+
+  will-change: transform, top, left;
 
 }
 
@@ -552,3 +574,202 @@
   text-align: center;
 }
 
+
+
+.weather-settings__widget-update {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 12px;
+
+}
+
+.weather-settings__widget-update-left,
+.weather-settings__widget-update-right {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+}
+
+@media (min-width: 600px) {
+
+  .weather-settings__widget-update {
+
+    flex-direction: row;
+
+    align-items: flex-end;
+
+    gap: 24px;
+
+  }
+
+  .weather-settings__widget-update-left,
+  .weather-settings__widget-update-right {
+
+    flex: 1 1 0;
+
+  }
+
+}
+
+.weather-settings__field {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+
+}
+
+.weather-settings__field > input,
+.weather-settings__field > select {
+
+  width: 100%;
+
+}
+
+.weather-settings__sun-transitions {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+}
+
+.weather-settings__sun-transition-row {
+
+
+
+  display: grid;
+
+
+
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+
+
+
+  gap: 12px;
+
+
+
+}
+
+
+
+.weather-settings__sun-transition-field {
+
+
+
+  display: flex;
+
+
+
+  flex-direction: column;
+
+
+
+  gap: 4px;
+
+
+
+}
+
+
+
+.weather-settings__sun-transition-field-label {
+
+
+
+  font-size: 12px;
+
+
+
+  color: var(--text-muted);
+
+
+
+}
+
+
+
+.weather-settings__sun-transition-input {
+
+
+
+  width: 64px;
+
+
+
+  text-align: center;
+
+
+
+}
+
+
+
+.weather-settings__sun-colors {
+
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+
+  gap: 12px;
+
+  margin-bottom: 8px;
+
+}
+
+.weather-settings__sun-color {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 6px;
+
+}
+
+.weather-settings__sun-color-label {
+
+  font-size: 12px;
+
+  color: var(--text-muted);
+
+}
+
+.weather-settings__sun-color-input {
+
+  width: 48px;
+
+  height: 32px;
+
+  padding: 0;
+
+  border: none;
+
+  background: transparent;
+
+  cursor: pointer;
+
+}
+
+.weather-settings__sun-color-input::-moz-color-swatch,
+.weather-settings__sun-color-input::-webkit-color-swatch {
+
+  border-radius: 8px;
+
+  border: 1px solid var(--background-modifier-border);
+
+}

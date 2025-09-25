@@ -9,14 +9,18 @@ export interface LocaleStrings {
       languageLabel: string;
       languageDescription: string;
     };
-    refresh: {
+    widgetUpdates: {
       heading: string;
       description: string;
-      autoRefreshLabel: string;
-      autoRefreshDescription: string;
-      cacheLabel: string;
-      cacheDescription: string;
+      providerLabel: string;
+      providerHint: string;
+      providerOptions: Record<string, string>;
+      apiKeyLabel: string;
+      apiKeyPlaceholder: string;
+      intervalLabel: string;
+      intervalHint: string;
     };
+    alphaProfiles: Record<string, string>;
     preview: {
       heading: string;
       description: string;
@@ -46,11 +50,15 @@ export interface LocaleStrings {
       heading: string;
       description: string;
     };
-    weatherPalette: {
+    weatherLayer: {
       heading: string;
       description: string;
+      alphaProfileLabel: string;
+      innerWidthLabel: string;
+      opacityScaleLabel: string;
+      disableLeftLabel: string;
     };
-    temperatureGradient: {
+    temperatureLayer: {
       heading: string;
       description: string;
       addButtonLabel: string;
@@ -58,22 +66,34 @@ export interface LocaleStrings {
         temperature: string;
         color: string;
       };
+      alphaProfileLabel: string;
+      innerWidthLabel: string;
+      opacityScaleLabel: string;
+      disableRightLabel: string;
     };
     sunLayer: {
       heading: string;
       description: string;
-      sunriseColor: string;
-      dayColor: string;
-      nightColor: string;
-      transitionLabel: string;
-      widthLabel: string;
-      softnessInnerLabel: string;
-      softnessOuterLabel: string;
-      twilightHighlightLabel: string;
-      dayHighlightLabel: string;
-      nightHighlightLabel: string;
-      dayAlphaLabel: string;
-      nightAlphaLabel: string;
+      colors: {
+        night: string;
+        sunrise: string;
+        day: string;
+        sunset: string;
+      };
+      alphaProfileLabel: string;
+      gradientWidthLabel: string;
+      innerWidthLabel: string;
+      opacityScaleLabel: string;
+      iconLabel: string;
+      iconScaleLabel: string;
+      transitionsLabel: string;
+      transitionsHint: string;
+      sunriseLabel: string;
+      sunsetLabel: string;
+      sunriseBeforeLabel: string;
+      sunriseAfterLabel: string;
+      sunsetBeforeLabel: string;
+      sunsetAfterLabel: string;
     };
     gradients: {
       heading: string;
@@ -109,15 +129,9 @@ export interface LocaleStrings {
         power: string;
       };
     };
-    display: {
+    other: {
       heading: string;
       description: string;
-      verticalFadeTop: string;
-      verticalFadeMiddle: string;
-      leftPanelWidth: string;
-      leftPanelHighlight: string;
-      daySpanMin: string;
-      daySpanMax: string;
       showDateLabel: string;
       showDateDescription: string;
     };
@@ -168,13 +182,33 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         languageLabel: "Interface language",
         languageDescription: "Switch the plugin UI between Russian and English.",
       },
-      refresh: {
-        heading: "Updates",
-        description: "Choose how often the plugin refreshes weather data and how long cached responses stay valid.",
-        autoRefreshLabel: "Refresh interval (minutes)",
-        autoRefreshDescription: "The widget asks the weather service on this cadence.",
-        cacheLabel: "Cache lifetime (minutes)",
-        cacheDescription: "Avoid excessive requests by reusing recent data.",
+      widgetUpdates: {
+        heading: "Widget updates",
+        description: "Configure the data source and when cached data expires.",
+        providerLabel: "Weather provider",
+        providerHint: "Select which service supplies the forecast.",
+        providerOptions: {
+          "open-meteo": "Open-Meteo",
+          "openweathermap": "OpenWeatherMap",
+        },
+        apiKeyLabel: "API key",
+        apiKeyPlaceholder: "Optional token",
+        intervalLabel: "Cache refresh (minutes)",
+        intervalHint: "Refresh cached data after this many minutes.",
+      },
+      alphaProfiles: {
+        sineIn: "Sine – ease in",
+        sineOut: "Sine – ease out",
+        sineInOut: "Sine – ease in/out",
+        quadIn: "Quad – ease in",
+        quadOut: "Quad – ease out",
+        quadInOut: "Quad – ease in/out",
+        cubicIn: "Cubic – ease in",
+        cubicOut: "Cubic – ease out",
+        cubicInOut: "Cubic – ease in/out",
+        circIn: "Circular – ease in",
+        circOut: "Circular – ease out",
+        circInOut: "Circular – ease in/out",
       },
       preview: {
         heading: "Preview widget",
@@ -205,34 +239,50 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         heading: "Time-of-day colors",
         description: "Tune base and highlight colors used for sunrise, day, evening, and night.",
       },
-      weatherPalette: {
-        heading: "Weather palette",
-        description: "Pick the color and icon for each weather category.",
+      weatherLayer: {
+        heading: "Weather",
+        description: "Assign colors and icons to each condition and tune the alpha gradient.",
+        alphaProfileLabel: "Alpha curve profile",
+        innerWidthLabel: "Opaque segment ratio",
+        opacityScaleLabel: "Opacity multiplier",
+        disableLeftLabel: "Disable left fade",
       },
-      temperatureGradient: {
-        heading: "Temperature gradient",
-        description: "Define color stops that map to specific °C values.",
+      temperatureLayer: {
+        heading: "Temperature",
+        description: "Maintain the temperature-to-color table and adjust the alpha gradient.",
         addButtonLabel: "Add stop",
         tableHeaders: {
           temperature: "Temperature (°C)",
           color: "Color",
         },
+        alphaProfileLabel: "Alpha curve profile",
+        innerWidthLabel: "Opaque segment ratio",
+        opacityScaleLabel: "Opacity multiplier",
+        disableRightLabel: "Disable right fade",
       },
       sunLayer: {
-        heading: "Sun overlay",
-        description: "Control the glowing spotlight that represents the sun's position.",
-        sunriseColor: "Sunrise color",
-        dayColor: "Day color",
-        nightColor: "Night color",
-        transitionLabel: "Transition duration (minutes)",
-        widthLabel: "Sun beam width",
-        softnessInnerLabel: "Inner softness",
-        softnessOuterLabel: "Outer softness",
-        twilightHighlightLabel: "Twilight highlight",
-        dayHighlightLabel: "Day highlight",
-        nightHighlightLabel: "Night highlight",
-        dayAlphaLabel: "Day opacity (peak / mid / low)",
-        nightAlphaLabel: "Night opacity (peak / mid / low)",
+        heading: "Sun",
+        description: "Configure the gradient, opacity, and icon that follow the sun's path.",
+        colors: {
+          night: "Night color",
+          sunrise: "Sunrise color",
+          day: "Day color",
+          sunset: "Sunset color",
+        },
+        alphaProfileLabel: "Alpha curve profile",
+        gradientWidthLabel: "Gradient width (%)",
+        innerWidthLabel: "Opaque segment ratio",
+        opacityScaleLabel: "Opacity multiplier",
+        iconLabel: "Sun icon",
+        iconScaleLabel: "Icon scale",
+        transitionsLabel: "Color transition windows (minutes)",
+        transitionsHint: "Configure when sunrise and sunset colors start blending.",
+        sunriseLabel: "Sunrise",
+        sunsetLabel: "Sunset",
+        sunriseBeforeLabel: "Before sunrise",
+        sunriseAfterLabel: "After sunrise",
+        sunsetBeforeLabel: "Before sunset",
+        sunsetAfterLabel: "After sunset",
       },
       gradients: {
         heading: "Layer gradients",
@@ -268,15 +318,9 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
           power: "Temperature easing power",
         },
       },
-      display: {
-        heading: "Display",
-        description: "Adjust auxiliary effects and date behaviour.",
-        verticalFadeTop: "Vertical fade (top)",
-        verticalFadeMiddle: "Vertical fade (middle)",
-        leftPanelWidth: "Highlight panel width",
-        leftPanelHighlight: "Minimum highlight intensity",
-        daySpanMin: "Minimum day span",
-        daySpanMax: "Maximum day span",
+      other: {
+        heading: "Other",
+        description: "Miscellaneous options for the widget.",
         showDateLabel: "Show date when different",
         showDateDescription: "Append the local date whenever it differs from your current day.",
       },
@@ -339,13 +383,33 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         languageLabel: "Язык интерфейса",
         languageDescription: "Переключайте плагин между русским и английским языками.",
       },
-      refresh: {
-        heading: "Обновление",
-        description: "Настройте частоту обновления и время хранения закэшированных данных.",
-        autoRefreshLabel: "Интервал запроса (мин)",
-        autoRefreshDescription: "С какой периодичностью виджет обращается к сервису погоды.",
-        cacheLabel: "Время жизни кеша (мин)",
-        cacheDescription: "Переиспользуйте свежие ответы, чтобы не перегружать API.",
+      widgetUpdates: {
+        heading: "Обновления виджета",
+        description: "Выберите источник данных и настройте обновление кеша.",
+        providerLabel: "Погодный сервис",
+        providerHint: "Сервис, из которого берутся прогнозы.",
+        providerOptions: {
+          "open-meteo": "Open-Meteo",
+          "openweathermap": "OpenWeatherMap",
+        },
+        apiKeyLabel: "API ключ",
+        apiKeyPlaceholder: "Необязательный токен",
+        intervalLabel: "Обновление кеша (мин)",
+        intervalHint: "После указанного времени данные будут запрошены повторно.",
+      },
+      alphaProfiles: {
+        sineIn: "Синус — плавное начало",
+        sineOut: "Синус — плавное завершение",
+        sineInOut: "Синус — плавное начало и завершение",
+        quadIn: "Квадратичная — плавное начало",
+        quadOut: "Квадратичная — плавное завершение",
+        quadInOut: "Квадратичная — плавное начало и завершение",
+        cubicIn: "Кубическая — плавное начало",
+        cubicOut: "Кубическая — плавное завершение",
+        cubicInOut: "Кубическая — плавное начало и завершение",
+        circIn: "Круговая — плавное начало",
+        circOut: "Круговая — плавное завершение",
+        circInOut: "Круговая — плавное начало и завершение",
       },
       preview: {
         heading: "Виртуальный виджет",
@@ -376,34 +440,50 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         heading: "Цвета по времени суток",
         description: "Настройте основную и акцентную палитру для рассвета, дня, вечера и ночи.",
       },
-      weatherPalette: {
-        heading: "Цвета погодных условий",
-        description: "Выберите цвет и иконку для каждого типа погоды.",
+      weatherLayer: {
+        heading: "Погода",
+        description: "Настройте цвета, иконки и форму альфа-градиента для погодных состояний.",
+        alphaProfileLabel: "Профиль кривой альфаканала",
+        innerWidthLabel: "Доля непрозрачной части",
+        opacityScaleLabel: "Множитель прозрачности",
+        disableLeftLabel: "Отключить левый градиент",
       },
-      temperatureGradient: {
-        heading: "Градиент температур",
-        description: "Определите соответствие цветов и температур (°C).",
+      temperatureLayer: {
+        heading: "Температура",
+        description: "Поддерживайте таблицу цветов и настраивайте альфа-градиент температурного слоя.",
         addButtonLabel: "Добавить точку",
         tableHeaders: {
           temperature: "Температура (°C)",
           color: "Цвет",
         },
+        alphaProfileLabel: "Профиль кривой альфаканала",
+        innerWidthLabel: "Доля непрозрачной части",
+        opacityScaleLabel: "Множитель прозрачности",
+        disableRightLabel: "Отключить правый градиент",
       },
       sunLayer: {
-        heading: "Солнечное свечение",
-        description: "Параметры светового пятна, показывающего положение солнца.",
-        sunriseColor: "Цвет рассвета",
-        dayColor: "Дневной цвет",
-        nightColor: "Ночной цвет",
-        transitionLabel: "Длительность перехода (мин)",
-        widthLabel: "Ширина луча",
-        softnessInnerLabel: "Мягкость внутри",
-        softnessOuterLabel: "Мягкость снаружи",
-        twilightHighlightLabel: "Подсветка сумерек",
-        dayHighlightLabel: "Подсветка дня",
-        nightHighlightLabel: "Подсветка ночи",
-        dayAlphaLabel: "Яркость дня (пик / середина / края)",
-        nightAlphaLabel: "Яркость ночи (пик / середина / края)",
+        heading: "Солнце",
+        description: "Настройте цвета, непрозрачность и значок, отображающие траекторию солнца.",
+        colors: {
+          night: "Цвет ночи",
+          sunrise: "Цвет рассвета",
+          day: "Цвет дня",
+          sunset: "Цвет заката",
+        },
+        alphaProfileLabel: "Профиль кривой альфаканала",
+        gradientWidthLabel: "Ширина градиента (%)",
+        innerWidthLabel: "Доля непрозрачной части",
+        opacityScaleLabel: "Множитель прозрачности",
+        iconLabel: "Значок солнца",
+        iconScaleLabel: "Масштаб значка",
+        transitionsLabel: "Окна переходов цвета (мин)",
+        transitionsHint: "Настройте, за сколько до и после восхода и заката меняются цвета.",
+        sunriseLabel: "Восход",
+        sunsetLabel: "Закат",
+        sunriseBeforeLabel: "До восхода",
+        sunriseAfterLabel: "После восхода",
+        sunsetBeforeLabel: "До заката",
+        sunsetAfterLabel: "После заката",
       },
       gradients: {
         heading: "Градиенты слоёв",
@@ -439,19 +519,19 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
           power: "Кривая ослабления",
         },
       },
-      display: {
-        heading: "Отображение",
-        description: "Настройте дополнительные эффекты и поведение даты.",
-        verticalFadeTop: "Вертикальное затемнение (сверху)",
-        verticalFadeMiddle: "Вертикальное затемнение (центр)",
-        leftPanelWidth: "Ширина подсветки слева",
-        leftPanelHighlight: "Минимальная интенсивность подсветки",
-        daySpanMin: "Мин. доля дневного времени",
-        daySpanMax: "Макс. доля дневного времени",
-        showDateLabel: "Показывать дату, если отличается",
-        showDateDescription: "Добавлять локальную дату, когда она не совпадает с текущей.",
+      other: {
+
+        heading: "Прочее",
+
+        description: "Дополнительные опции виджета.",
+
+        showDateLabel: "Показывать дату, когда день отличается",
+
+        showDateDescription: "Добавлять локальную дату, если она отличается от текущей.",
+
       },
-      reset: {
+
+     reset: {
         heading: "Сброс настроек",
         description: "Вернуть все параметры к значениям по умолчанию.",
         confirm: "Сбросить все настройки к значениям по умолчанию? Действие нельзя отменить.",

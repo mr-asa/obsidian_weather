@@ -1,4 +1,5 @@
 import type { LocaleCode } from "./i18n/types";
+import type { AlphaEasingProfile } from "./utils/alpha-gradient";
 
 export type TimeOfDayKey = "morning" | "day" | "evening" | "night";
 
@@ -32,6 +33,46 @@ export interface CategoryStyle {
 
 }
 
+export type WeatherProviderId = "open-meteo" | "openweathermap";
+
+export interface AlphaGradientSettings {
+
+  profile: AlphaEasingProfile;
+
+  innerOpacityRatio: number;
+
+  opacityScale: number;
+
+  enableLeft: boolean;
+
+  enableRight: boolean;
+
+}
+
+export interface SunIconSettings {
+
+  symbol: string;
+
+  scale: number;
+
+}
+
+export interface SunTransitionWindow {
+
+  before: number;
+
+  after: number;
+
+}
+
+export interface SunColorTransitions {
+
+  sunrise: SunTransitionWindow;
+
+  sunset: SunTransitionWindow;
+
+}
+
 export interface SunAlphaSettings {
 
   peak: number;
@@ -46,11 +87,13 @@ export interface SunLayerSettings {
 
   colors: {
 
+    night: string;
+
     sunrise: string;
 
     day: string;
 
-    night: string;
+    sunset: string;
 
   };
 
@@ -71,6 +114,18 @@ export interface SunLayerSettings {
   dayHighlight: number;
 
   nightHighlight: number;
+
+  alphaProfile: AlphaEasingProfile;
+
+  gradientWidthPercent: number;
+
+  gradientInnerRatio: number;
+
+  gradientOpacity: number;
+
+  icon: SunIconSettings;
+
+  transitions: SunColorTransitions;
 
 }
 
@@ -172,6 +227,14 @@ export interface WeatherWidgetSettings {
 
   autoRefreshMinutes: number;
 
+  weatherProvider: WeatherProviderId;
+
+  weatherProviderApiKey: string;
+
+  weatherAlpha: AlphaGradientSettings;
+
+  temperatureAlpha: AlphaGradientSettings;
+
   categoryStyles: Record<WeatherCategory, CategoryStyle>;
 
   timeBaseColors: Record<TimeOfDayKey, string>;
@@ -234,6 +297,38 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
 
   autoRefreshMinutes: 15,
 
+  weatherProvider: "open-meteo",
+
+  weatherProviderApiKey: "",
+
+  weatherAlpha: {
+
+    profile: "sineInOut",
+
+    innerOpacityRatio: 0.4,
+
+    opacityScale: 0.9,
+
+    enableLeft: true,
+
+    enableRight: true,
+
+  },
+
+  temperatureAlpha: {
+
+    profile: "cubicInOut",
+
+    innerOpacityRatio: 0.5,
+
+    opacityScale: 1,
+
+    enableLeft: true,
+
+    enableRight: true,
+
+  },
+
   categoryStyles: {
 
     sunny: { color: "#60a5fa", icon: "☀" },
@@ -268,11 +363,13 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
 
     colors: {
 
+      night: "#93C5FD",
+
       sunrise: "#FF4A00",
 
       day: "#FFD200",
 
-      night: "#93C5FD",
+      sunset: "#FF8A3B",
 
     },
 
@@ -293,6 +390,24 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     dayHighlight: 0.6,
 
     nightHighlight: 0.08,
+
+    alphaProfile: "cubicInOut",
+
+    gradientWidthPercent: 60,
+
+    gradientInnerRatio: 0.5,
+
+    gradientOpacity: 0.85,
+
+    icon: { symbol: "◉", scale: 1 },
+
+    transitions: {
+
+      sunrise: { before: 45, after: 45 },
+
+      sunset: { before: 45, after: 45 },
+
+    },
 
   },
 

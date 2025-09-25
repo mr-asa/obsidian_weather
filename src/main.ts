@@ -55,7 +55,7 @@ export default class WeatherPlugin extends Plugin {
 
   private refreshIntervalId: number | null = null;
 
-  private widgetMinuteIntervalId: number | null = null;
+  private widgetMinuteTimeoutId: number | null = null;
 
   private lastWidgetMinute: number | null = null;
 
@@ -97,11 +97,11 @@ export default class WeatherPlugin extends Plugin {
 
     }
 
-    if (this.widgetMinuteIntervalId !== null) {
+    if (this.widgetMinuteTimeoutId !== null) {
 
-      window.clearInterval(this.widgetMinuteIntervalId);
+      window.clearTimeout(this.widgetMinuteTimeoutId);
 
-      this.widgetMinuteIntervalId = null;
+      this.widgetMinuteTimeoutId = null;
 
     }
 
@@ -164,6 +164,12 @@ export default class WeatherPlugin extends Plugin {
       }
 
     }
+
+  }
+
+  onSettingsTabClosed(): void {
+
+    this.scheduleWidgetMinuteUpdates();
 
   }
 
@@ -549,6 +555,12 @@ export default class WeatherPlugin extends Plugin {
 
     this.normalizeSettings();
 
+    const apiKey = (this.settings.weatherProviderApiKey ?? "").trim();
+
+    this.settings.weatherProviderApiKey = apiKey;
+
+    this.weatherService?.configureProvider(this.settings.weatherProvider, apiKey);
+
     this.applyLocalization();
 
   }
@@ -556,6 +568,12 @@ export default class WeatherPlugin extends Plugin {
   async saveSettings(): Promise<void> {
 
     this.normalizeSettings();
+
+    const apiKey = (this.settings.weatherProviderApiKey ?? "").trim();
+
+    this.settings.weatherProviderApiKey = apiKey;
+
+    this.weatherService.configureProvider(this.settings.weatherProvider, apiKey);
 
     await this.saveData(this.settings);
 
@@ -601,41 +619,113 @@ export default class WeatherPlugin extends Plugin {
 
   private scheduleWidgetMinuteUpdates(): void {
 
-    if (this.widgetMinuteIntervalId !== null) {
 
-      window.clearInterval(this.widgetMinuteIntervalId);
 
-      this.widgetMinuteIntervalId = null;
+    if (this.widgetMinuteTimeoutId !== null) {
+
+
+
+      window.clearTimeout(this.widgetMinuteTimeoutId);
+
+
+
+      this.widgetMinuteTimeoutId = null;
+
+
 
     }
 
-    const tick = () => {
 
-      const now = new Date();
 
-      const currentMinute = now.getMinutes();
+    const scheduleNext = () => {
 
-      if (this.lastWidgetMinute === currentMinute) {
 
-        return;
 
-      }
+      const now = Date.now();
 
-      this.lastWidgetMinute = currentMinute;
 
-      this.requestWidgetRefresh();
+
+      const nextMinute = Math.floor(now / 60_000) * 60_000 + 60_000;
+
+
+
+      const delay = Math.max(0, nextMinute - now);
+
+
+
+      this.widgetMinuteTimeoutId = window.setTimeout(() => {
+
+
+
+        this.widgetMinuteTimeoutId = null;
+
+
+
+        this.handleWidgetMinuteTick();
+
+
+
+        scheduleNext();
+
+
+
+      }, delay);
+
+
 
     };
 
-    tick();
 
-    const intervalId = window.setInterval(tick, 15_000);
 
-    this.widgetMinuteIntervalId = intervalId;
+    this.handleWidgetMinuteTick(true);
 
-    this.registerInterval(intervalId);
+
+
+    scheduleNext();
+
+
 
   }
+
+
+
+  private handleWidgetMinuteTick(force = false): void {
+
+
+
+    const now = new Date();
+
+
+
+    const currentMinute = now.getMinutes();
+
+
+
+    if (!force && this.lastWidgetMinute === currentMinute) {
+
+
+
+      return;
+
+
+
+    }
+
+
+
+    this.lastWidgetMinute = currentMinute;
+
+
+
+    this.requestWidgetRefresh();
+
+
+
+  }
+
+
+
+
 
   async refreshWeatherData(): Promise<void> {
 
