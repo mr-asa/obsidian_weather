@@ -231,6 +231,8 @@ export interface WeatherWidgetSettings {
 
   weatherProviderApiKey: string;
 
+  weatherProviderApiKeys: Record<WeatherProviderId, string>;
+
   weatherAlpha: AlphaGradientSettings;
 
   temperatureAlpha: AlphaGradientSettings;
@@ -300,6 +302,14 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
   weatherProvider: "open-meteo",
 
   weatherProviderApiKey: "",
+
+  weatherProviderApiKeys: {
+
+    "open-meteo": "",
+
+    "openweathermap": "",
+
+  },
 
   weatherAlpha: {
 

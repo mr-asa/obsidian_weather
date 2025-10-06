@@ -22,6 +22,8 @@ import {
 
   type TimeOfDayKey,
 
+  type WeatherProviderId,
+
 } from "./settings";
 
 import { clamp, lerp, normalize } from "./utils/math";
@@ -38,6 +40,14 @@ const LAT_MAX = 90;
 const LON_MIN = -180;
 
 const LON_MAX = 180;
+
+const PROVIDER_META: Record<WeatherProviderId, { requiresKey: boolean }> = {
+
+  "open-meteo": { requiresKey: false },
+
+  "openweathermap": { requiresKey: true },
+
+};
 
 const TEMP_MIN = -80;
 
@@ -268,15 +278,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     providerSelect.value = this.plugin.settings.weatherProvider;
 
-    providerSelect.addEventListener("change", (event) => {
+    const providerHint = leftColumn.createDiv({ cls: "weather-settings__hint" });
 
-      const target = event.target as HTMLSelectElement;
-
-      this.plugin.settings.weatherProvider = target.value as typeof this.plugin.settings.weatherProvider;
-
-      void this.plugin.saveSettings();
-
-    });
+    providerHint.textContent = strings.settings.widgetUpdates.providerHint;
 
     const apiLabel = leftColumn.createEl("label", { cls: "weather-settings__field" });
 
@@ -284,15 +288,81 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     const apiInput = apiLabel.createEl("input", { attr: { type: "text", placeholder: strings.settings.widgetUpdates.apiKeyPlaceholder } });
 
-    apiInput.value = this.plugin.settings.weatherProviderApiKey ?? "";
+    const apiHint = leftColumn.createDiv({ cls: "weather-settings__hint" });
 
-    apiInput.addEventListener("change", () => {
+    const applyProviderState = () => {
 
-      this.plugin.settings.weatherProviderApiKey = apiInput.value.trim();
+      const provider = this.plugin.settings.weatherProvider as WeatherProviderId;
+
+      const meta = PROVIDER_META[provider] ?? { requiresKey: false };
+
+      if (!this.plugin.settings.weatherProviderApiKeys) {
+
+        this.plugin.settings.weatherProviderApiKeys = { ...DEFAULT_SETTINGS.weatherProviderApiKeys };
+
+      }
+
+      const keys = this.plugin.settings.weatherProviderApiKeys;
+
+      const storedValue = typeof keys[provider] === "string" ? keys[provider] : "";
+
+      apiInput.value = storedValue;
+
+      apiInput.disabled = !meta.requiresKey;
+
+      apiInput.required = meta.requiresKey;
+
+      const descriptions = strings.settings.widgetUpdates.apiKeyDescriptions ?? {};
+
+      const description = descriptions[provider] ?? "";
+
+      apiHint.textContent = description;
+
+      apiHint.style.display = description.trim().length > 0 ? "" : "none";
+
+    };
+
+    providerSelect.addEventListener("change", (event) => {
+
+      const target = event.target as HTMLSelectElement;
+
+      this.plugin.settings.weatherProvider = target.value as WeatherProviderId;
+
+      applyProviderState();
 
       void this.plugin.saveSettings();
 
     });
+
+    apiInput.addEventListener("change", () => {
+
+      if (apiInput.disabled) {
+
+        return;
+
+      }
+
+      const provider = this.plugin.settings.weatherProvider as WeatherProviderId;
+
+      const value = apiInput.value.trim();
+
+      if (!this.plugin.settings.weatherProviderApiKeys) {
+
+        this.plugin.settings.weatherProviderApiKeys = { ...DEFAULT_SETTINGS.weatherProviderApiKeys };
+
+      }
+
+      this.plugin.settings.weatherProviderApiKeys[provider] = value;
+
+      this.plugin.settings.weatherProviderApiKey = value;
+
+      apiInput.value = value;
+
+      void this.plugin.saveSettings();
+
+    });
+
+    applyProviderState();
 
     const rightColumn = control.createDiv({ cls: "weather-settings__widget-update-right" });
 

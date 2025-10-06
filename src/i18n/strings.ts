@@ -17,6 +17,7 @@ export interface LocaleStrings {
       providerOptions: Record<string, string>;
       apiKeyLabel: string;
       apiKeyPlaceholder: string;
+      apiKeyDescriptions: Record<string, string>;
       intervalLabel: string;
       intervalHint: string;
     };
@@ -190,6 +191,10 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         providerOptions: {
           "open-meteo": "Open-Meteo",
           "openweathermap": "OpenWeatherMap",
+        },
+        apiKeyDescriptions: {
+          "open-meteo": "Open-Meteo works without an API key.",
+          "openweathermap": "OpenWeatherMap requires a personal API key from your account.",
         },
         apiKeyLabel: "API key",
         apiKeyPlaceholder: "Optional token",
@@ -392,6 +397,10 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
           "open-meteo": "Open-Meteo",
           "openweathermap": "OpenWeatherMap",
         },
+        apiKeyDescriptions: {
+          "open-meteo": "Open-Meteo не требует API-ключ.",
+          "openweathermap": "Для OpenWeatherMap нужен личный API-ключ из кабинета.",
+        },
         apiKeyLabel: "API ключ",
         apiKeyPlaceholder: "Необязательный токен",
         intervalLabel: "Обновление кеша (мин)",
@@ -584,4 +593,9 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
 export function getLocaleStrings(locale: LocaleCode): LocaleStrings {
   return LOCALE_STRINGS[locale] ?? LOCALE_STRINGS[DEFAULT_LOCALE];
 }
+
+
+
+
+
 

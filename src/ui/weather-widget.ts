@@ -259,7 +259,27 @@ function minutesOfDayAtLon(date: Date, lon: number): number {
 
 }
 
-function formatTimeForCity(date: Date, timezone: string | null, longitude: number, locale: string): string {
+function minutesOfDayWithOffset(date: Date, offsetMinutes: number): number {
+
+  const shifted = shiftedDateByOffset(date, offsetMinutes);
+
+  return shifted.getHours() * 60 + shifted.getMinutes();
+
+}
+
+function formatTimeForCity(
+
+  date: Date,
+
+  timezone: string | null,
+
+  timezoneOffsetMinutes: number | null,
+
+  longitude: number,
+
+  locale: string,
+
+): string {
 
   if (timezone) {
 
@@ -285,6 +305,22 @@ function formatTimeForCity(date: Date, timezone: string | null, longitude: numbe
 
   }
 
+  if (typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)) {
+
+    const shifted = shiftedDateByOffset(date, timezoneOffsetMinutes);
+
+    return shifted.toLocaleTimeString(locale, {
+
+      hour: "2-digit",
+
+      minute: "2-digit",
+
+      hour12: false,
+
+    });
+
+  }
+
   const shifted = shiftedDateByOffset(date, clampOffsetByLon(longitude));
 
   return shifted.toLocaleTimeString(locale, {
@@ -299,7 +335,19 @@ function formatTimeForCity(date: Date, timezone: string | null, longitude: numbe
 
 }
 
-function formatDateForCity(date: Date, timezone: string | null, longitude: number, locale: string): string {
+function formatDateForCity(
+
+  date: Date,
+
+  timezone: string | null,
+
+  timezoneOffsetMinutes: number | null,
+
+  longitude: number,
+
+  locale: string,
+
+): string {
 
   if (timezone) {
 
@@ -323,6 +371,20 @@ function formatDateForCity(date: Date, timezone: string | null, longitude: numbe
 
   }
 
+  if (typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)) {
+
+    const shifted = shiftedDateByOffset(date, timezoneOffsetMinutes);
+
+    return shifted.toLocaleDateString(locale, {
+
+      day: "2-digit",
+
+      month: "2-digit",
+
+    });
+
+  }
+
   const shifted = shiftedDateByOffset(date, clampOffsetByLon(longitude));
 
   return shifted.toLocaleDateString(locale, {
@@ -342,6 +404,8 @@ function sunPositionPercent(
   sunsetIso: string | null,
 
   timezone: string | null,
+
+  timezoneOffsetMinutes: number | null,
 
   longitude: number,
 
@@ -363,7 +427,11 @@ function sunPositionPercent(
 
     ? minutesOfDayInTimezone(now, timezone)
 
-    : minutesOfDayAtLon(now, longitude);
+    : typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)
+
+      ? minutesOfDayWithOffset(now, timezoneOffsetMinutes)
+
+      : minutesOfDayAtLon(now, longitude);
 
   if (minutesNow <= sunrise) {
 
@@ -391,6 +459,8 @@ function timePaletteBySun(
 
   timezone: string | null,
 
+  timezoneOffsetMinutes: number | null,
+
   longitude: number,
 
 ): Palette {
@@ -405,7 +475,11 @@ function timePaletteBySun(
 
     ? minutesOfDayInTimezone(now, timezone)
 
-    : minutesOfDayAtLon(now, longitude);
+    : typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)
+
+      ? minutesOfDayWithOffset(now, timezoneOffsetMinutes)
+
+      : minutesOfDayAtLon(now, longitude);
 
   if (sunriseMinutes == null || sunsetMinutes == null || sunsetMinutes <= sunriseMinutes) {
 
@@ -585,11 +659,13 @@ export class WeatherWidget {
 
       const timezone = snapshot.timezone;
 
+      const timezoneOffset = snapshot.timezoneOffsetMinutes ?? null;
+
       const now = new Date();
 
-      const localTime = formatTimeForCity(now, timezone, city.longitude, locale);
+      const localTime = formatTimeForCity(now, timezone, timezoneOffset, city.longitude, locale);
 
-      const localDate = formatDateForCity(now, timezone, city.longitude, locale);
+      const localDate = formatDateForCity(now, timezone, timezoneOffset, city.longitude, locale);
 
       const [hours] = localTime.split(":");
 
@@ -613,7 +689,7 @@ export class WeatherWidget {
 
       const weatherLabel = strings.weatherConditions[category] ?? category;
 
-      const sunPosition = sunPositionPercent(snapshot.sunrise, snapshot.sunset, timezone, city.longitude);
+      const sunPosition = sunPositionPercent(snapshot.sunrise, snapshot.sunset, timezone, timezoneOffset, city.longitude);
 
       const sunriseMinutes = parseHmFromIsoLocal(snapshot.sunrise);
 
@@ -623,7 +699,7 @@ export class WeatherWidget {
 
 
 
-      const palette = timePaletteBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, city.longitude);
+      const palette = timePaletteBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, timezoneOffset, city.longitude);
 
       const baseFallback = ensureHex(settings.timeBaseColors[timeOfDay]);
 
@@ -661,9 +737,13 @@ export class WeatherWidget {
 
       const nowMinutes = timezone
 
-        ? minutesOfDayInTimezone(new Date(), timezone)
+        ? minutesOfDayInTimezone(now, timezone)
 
-        : minutesOfDayAtLon(new Date(), city.longitude);
+        : typeof timezoneOffset === "number" && Number.isFinite(timezoneOffset)
+
+          ? minutesOfDayWithOffset(now, timezoneOffset)
+
+          : minutesOfDayAtLon(now, city.longitude);
 
       const overlayState = buildSunOverlayState({
 

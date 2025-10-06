@@ -12,6 +12,8 @@ export interface WeatherSnapshot {
 
   timezone: string | null;
 
+  timezoneOffsetMinutes: number | null;
+
   sunrise: string | null;
 
   sunset: string | null;
@@ -69,7 +71,19 @@ function toLocalIsoString(epochSeconds: number, offsetSeconds: number): string {
 
   const localMillis = (epochSeconds + offsetSeconds) * 1_000;
 
-  return new Date(localMillis).toISOString();
+  const date = new Date(localMillis);
+
+  const year = date.getUTCFullYear();
+
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+
+  const day = `${date.getUTCDate()}`.padStart(2, "0");
+
+  const hours = `${date.getUTCHours()}`.padStart(2, "0");
+
+  const minutes = `${date.getUTCMinutes()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 
 }
 
@@ -311,11 +325,13 @@ export class WeatherService {
 
         latitude: city.latitude,
 
-        longitude: city.longitude,
+      longitude: city.longitude,
 
-        timezone: data?.timezone ?? null,
+      timezone: data?.timezone ?? null,
 
-        sunrise: data?.daily?.sunrise?.[0] ?? null,
+      timezoneOffsetMinutes: null,
+
+      sunrise: data?.daily?.sunrise?.[0] ?? null,
 
         sunset: data?.daily?.sunset?.[0] ?? null,
 
@@ -369,17 +385,25 @@ export class WeatherService {
 
       };
 
-      const timezoneOffset = typeof data?.timezone === "number" ? data.timezone : 0;
+      const timezoneOffsetSecondsRaw = typeof data?.timezone === "number" ? data.timezone : null;
+
+      const timezoneOffsetMinutes = timezoneOffsetSecondsRaw != null
+
+        ? Math.round(timezoneOffsetSecondsRaw / 60)
+
+        : null;
+
+      const offsetSeconds = timezoneOffsetSecondsRaw ?? 0;
 
       const sunriseIso = typeof data?.sys?.sunrise === "number"
 
-        ? toLocalIsoString(data.sys.sunrise, timezoneOffset)
+        ? toLocalIsoString(data.sys.sunrise, offsetSeconds)
 
         : null;
 
       const sunsetIso = typeof data?.sys?.sunset === "number"
 
-        ? toLocalIsoString(data.sys.sunset, timezoneOffset)
+        ? toLocalIsoString(data.sys.sunset, offsetSeconds)
 
         : null;
 
@@ -396,6 +420,8 @@ export class WeatherService {
         longitude: city.longitude,
 
         timezone: null,
+
+        timezoneOffsetMinutes,
 
         sunrise: sunriseIso,
 

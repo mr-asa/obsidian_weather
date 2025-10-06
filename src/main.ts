@@ -22,6 +22,8 @@ import {
 
   type WeatherCategory,
 
+  type WeatherProviderId,
+
 } from "./settings";
 
 import { WeatherSettingsTab } from "./settings-tab";
@@ -58,6 +60,8 @@ export default class WeatherPlugin extends Plugin {
   private widgetMinuteTimeoutId: number | null = null;
 
   private lastWidgetMinute: number | null = null;
+
+  private providerSignature: string | null = null;
 
   async onload(): Promise<void> {
 
@@ -219,6 +223,24 @@ export default class WeatherPlugin extends Plugin {
 
   }
 
+  private computeProviderSignature(provider: WeatherProviderId, apiKey: string): string {
+
+    return `${provider}:${apiKey}`;
+
+  }
+
+  private getActiveProviderApiKey(): string {
+
+    const provider = this.settings.weatherProvider;
+
+    const keys = this.settings.weatherProviderApiKeys ?? {};
+
+    const value = typeof keys[provider] === "string" ? keys[provider] : "";
+
+    return value.trim();
+
+  }
+
   private normalizeSettings(): void {
 
     const defaults = DEFAULT_SETTINGS;
@@ -264,6 +286,52 @@ export default class WeatherPlugin extends Plugin {
       } as CityLocation;
 
     });
+
+    const providerDefaults = DEFAULT_SETTINGS.weatherProviderApiKeys;
+
+    const providerIds = Object.keys(providerDefaults) as WeatherProviderId[];
+
+    if (!providerIds.includes(this.settings.weatherProvider)) {
+
+      this.settings.weatherProvider = DEFAULT_SETTINGS.weatherProvider;
+
+    }
+
+    if (!this.settings.weatherProviderApiKeys || typeof this.settings.weatherProviderApiKeys !== "object") {
+
+      this.settings.weatherProviderApiKeys = { ...providerDefaults };
+
+    }
+
+    const providerKeys = this.settings.weatherProviderApiKeys;
+
+    providerIds.forEach((provider) => {
+
+      const raw = providerKeys[provider];
+
+      providerKeys[provider] = typeof raw === "string" ? raw.trim() : "";
+
+    });
+
+    if (typeof this.settings.weatherProviderApiKey === "string") {
+
+      const legacyKey = this.settings.weatherProviderApiKey.trim();
+
+      this.settings.weatherProviderApiKey = legacyKey;
+
+      const currentProvider = this.settings.weatherProvider;
+
+      if (legacyKey.length > 0 && (!providerKeys[currentProvider] || providerKeys[currentProvider].length === 0)) {
+
+        providerKeys[currentProvider] = legacyKey;
+
+      }
+
+    } else {
+
+      this.settings.weatherProviderApiKey = "";
+
+    }
 
     if (!Number.isFinite(this.settings.weatherCacheMinutes)) {
 
@@ -555,11 +623,25 @@ export default class WeatherPlugin extends Plugin {
 
     this.normalizeSettings();
 
-    const apiKey = (this.settings.weatherProviderApiKey ?? "").trim();
+    const apiKey = this.getActiveProviderApiKey();
+
+    this.settings.weatherProviderApiKeys[this.settings.weatherProvider] = apiKey;
 
     this.settings.weatherProviderApiKey = apiKey;
 
+    const nextSignature = this.computeProviderSignature(this.settings.weatherProvider, apiKey);
+
+    const signatureChanged = this.providerSignature !== null && this.providerSignature !== nextSignature;
+
     this.weatherService?.configureProvider(this.settings.weatherProvider, apiKey);
+
+    if (signatureChanged) {
+
+      this.weatherData.clear();
+
+    }
+
+    this.providerSignature = nextSignature;
 
     this.applyLocalization();
 
@@ -567,13 +649,27 @@ export default class WeatherPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
 
+    const previousSignature = this.providerSignature;
+
     this.normalizeSettings();
 
-    const apiKey = (this.settings.weatherProviderApiKey ?? "").trim();
+    const apiKey = this.getActiveProviderApiKey();
+
+    this.settings.weatherProviderApiKeys[this.settings.weatherProvider] = apiKey;
 
     this.settings.weatherProviderApiKey = apiKey;
 
+    const nextSignature = this.computeProviderSignature(this.settings.weatherProvider, apiKey);
+
     this.weatherService.configureProvider(this.settings.weatherProvider, apiKey);
+
+    if (previousSignature !== null && previousSignature !== nextSignature) {
+
+      this.weatherData.clear();
+
+    }
+
+    this.providerSignature = nextSignature;
 
     await this.saveData(this.settings);
 
@@ -731,7 +827,15 @@ export default class WeatherPlugin extends Plugin {
 
     if (this.settings.cities.length === 0) {
 
+      const hadData = this.weatherData.size > 0;
+
       this.weatherData.clear();
+
+      if (hadData) {
+
+        this.requestWidgetRefresh();
+
+      }
 
       return;
 
@@ -739,13 +843,33 @@ export default class WeatherPlugin extends Plugin {
 
     let updated = false;
 
+    const activeCityIds = new Set<string>();
+
     for (const city of this.settings.cities) {
+
+      activeCityIds.add(city.id);
 
       const snapshot = await this.weatherService.refreshCity(city, this.settings.weatherCacheMinutes);
 
       if (snapshot) {
 
         this.weatherData.set(city.id, snapshot);
+
+        updated = true;
+
+      } else if (this.weatherData.delete(city.id)) {
+
+        updated = true;
+
+      }
+
+    }
+
+    for (const existingCityId of Array.from(this.weatherData.keys())) {
+
+      if (!activeCityIds.has(existingCityId)) {
+
+        this.weatherData.delete(existingCityId);
 
         updated = true;
 
