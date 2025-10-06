@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type LocaleCode } from "./types";
+﻿import { DEFAULT_LOCALE, type LocaleCode } from "./types";
 import type { TimeOfDayKey, WeatherCategory } from "../settings";
 
 export interface LocaleStrings {
@@ -99,6 +99,8 @@ export interface LocaleStrings {
     gradients: {
       heading: string;
       description: string;
+      edgeWidthLabel: string;
+      edgeWidthHint: string;
       time: {
         title: string;
         mixRatio: string;
@@ -292,6 +294,8 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       gradients: {
         heading: "Layer gradients",
         description: "Fine tune how each background layer blends across the row. The shared preview bar above updates instantly.",
+        edgeWidthLabel: "Edge gradient width",
+        edgeWidthHint: "Base fraction (0–0.5) that controls how wide the weather and temperature gradients extend from the edges before day-length scaling.",
         time: {
           title: "Time layer",
           mixRatio: "Time layer mix ratio",
@@ -497,6 +501,8 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       gradients: {
         heading: "Градиенты слоёв",
         description: "Настройте переходы фоновых слоев. Общая панель предпросмотра выше обновляется мгновенно.",
+        edgeWidthLabel: "Edge gradient width",
+        edgeWidthHint: "Base fraction (0-0.5) that controls how wide the weather and temperature gradients extend from the edges before day-length scaling.",
         time: {
           title: "Слой времени",
           mixRatio: "Смешение слоя времени",

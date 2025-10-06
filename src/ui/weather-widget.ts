@@ -39,13 +39,7 @@ const TIME_EMOJIS: Record<TimeOfDayKey, string> = {
 
 const WEATHER_FALLBACK_ICON = "☁";
 
-interface Palette {
-
-  base: string;
-
-  tint: string;
-
-}
+type TimePaletteColor = string;
 
 function clamp01(value: number): number {
 
@@ -449,7 +443,7 @@ function sunPositionPercent(
 
 }
 
-function timePaletteBySun(
+function timeColorBySun(
 
   settings: WeatherWidgetSettings,
 
@@ -463,7 +457,7 @@ function timePaletteBySun(
 
   longitude: number,
 
-): Palette {
+): TimePaletteColor {
 
   const sunriseMinutes = parseHmFromIsoLocal(sunriseIso);
 
@@ -485,13 +479,7 @@ function timePaletteBySun(
 
     const tod = getTimeOfDay(Math.floor(nowMinutes / 60));
 
-    return {
-
-      base: ensureHex(settings.timeBaseColors[tod]),
-
-      tint: ensureHex(settings.timeTintColors[tod]),
-
-    };
+    return ensureHex(settings.timeBaseColors[tod]);
 
   }
 
@@ -499,15 +487,15 @@ function timePaletteBySun(
 
   const stops = [
 
-    { m: 0, base: ensureHex(settings.timeBaseColors.night), tint: ensureHex(settings.timeTintColors.night) },
+    { m: 0, color: ensureHex(settings.timeBaseColors.night) },
 
-    { m: sunriseMinutes, base: ensureHex(settings.timeBaseColors.morning), tint: ensureHex(settings.timeTintColors.morning) },
+    { m: sunriseMinutes, color: ensureHex(settings.timeBaseColors.morning) },
 
-    { m: mid, base: ensureHex(settings.timeBaseColors.day), tint: ensureHex(settings.timeTintColors.day) },
+    { m: mid, color: ensureHex(settings.timeBaseColors.day) },
 
-    { m: sunsetMinutes, base: ensureHex(settings.timeBaseColors.evening), tint: ensureHex(settings.timeTintColors.evening) },
+    { m: sunsetMinutes, color: ensureHex(settings.timeBaseColors.evening) },
 
-    { m: MINUTES_IN_DAY, base: ensureHex(settings.timeBaseColors.night), tint: ensureHex(settings.timeTintColors.night) },
+    { m: MINUTES_IN_DAY, color: ensureHex(settings.timeBaseColors.night) },
 
   ];
 
@@ -521,25 +509,13 @@ function timePaletteBySun(
 
       const factor = (nowMinutes - current.m) / Math.max(1, next.m - current.m);
 
-      return {
-
-        base: lerpColorGamma(current.base, next.base, factor),
-
-        tint: lerpColorGamma(current.tint, next.tint, factor),
-
-      };
+      return lerpColorGamma(current.color, next.color, factor);
 
     }
 
   }
 
-  return {
-
-    base: ensureHex(settings.timeBaseColors.night),
-
-    tint: ensureHex(settings.timeTintColors.night),
-
-  };
+  return ensureHex(settings.timeBaseColors.night);
 
 }
 
@@ -699,11 +675,11 @@ export class WeatherWidget {
 
 
 
-      const palette = timePaletteBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, timezoneOffset, city.longitude);
+      const timeColor = timeColorBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, timezoneOffset, city.longitude);
 
       const baseFallback = ensureHex(settings.timeBaseColors[timeOfDay]);
 
-      const baseColor = lerpColorGamma(baseFallback, palette.base, 0.6);
+      const baseColor = lerpColorGamma(baseFallback, timeColor, 0.6);
 
       const temperatureColor = tempToColor(snapshot.temperature, settings.temperatureGradient);
 
@@ -758,8 +734,6 @@ export class WeatherWidget {
         sunPositionPercent: sunPosition,
 
         timeOfDay,
-
-        tintColor: palette.tint || weatherColor,
 
       });
 

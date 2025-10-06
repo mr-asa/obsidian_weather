@@ -740,41 +740,23 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
       const setting = new Setting(grid).setName(strings.sunPhases[phase]);
 
-      setting
+      setting.addColorPicker((picker) =>
 
-        .addColorPicker((picker) =>
+        picker
 
-          picker
+          .setValue(this.plugin.settings.timeBaseColors[phase])
 
-            .setValue(this.plugin.settings.timeBaseColors[phase])
+          .onChange((value) => {
 
-            .onChange((value) => {
+            this.plugin.settings.timeBaseColors[phase] = value;
 
-              this.plugin.settings.timeBaseColors[phase] = value;
+            void this.plugin.saveSettings();
 
-              void this.plugin.saveSettings();
+            this.updateTimeGradientPreview?.();
 
-              this.updateTimeGradientPreview?.();
+            this.refreshPreviewRow();
 
-            }))
-
-        .addColorPicker((picker) =>
-
-          picker
-
-            .setValue(this.plugin.settings.timeTintColors[phase])
-
-            .onChange((value) => {
-
-              this.plugin.settings.timeTintColors[phase] = value;
-
-              void this.plugin.saveSettings();
-
-              this.updateTimeGradientPreview?.();
-
-              this.refreshPreviewRow();
-
-            }));
+          }));
 
     });
 
@@ -1653,6 +1635,27 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
   private renderGradientAccordion(parent: HTMLElement, strings: LocaleStrings): void {
 
+    this.addNumberSetting(
+      parent,
+      strings.settings.gradients.edgeWidthLabel,
+      this.plugin.settings.gradientEdgePortion,
+      (value) => {
+        const normalized = Math.min(0.5, Math.max(0, value));
+        this.plugin.settings.gradientEdgePortion = normalized;
+        return normalized;
+      },
+      {
+        min: 0,
+        max: 0.5,
+        step: "0.01",
+        desc: strings.settings.gradients.edgeWidthHint,
+        onChange: () => {
+          this.refreshGradientPreview();
+          this.refreshPreviewRow();
+        },
+      },
+    );
+
     this.renderGradientDetails(parent, strings.settings.gradients.time.title, (body) => {
 
       this.renderTimeGradientSection(body, strings);
@@ -1943,7 +1946,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
         sunsetMinutes: sunsetMinutesValue,
         sunPositionPercent,
         timeOfDay,
-        tintColor: weatherColor,
       });
       this.previewOverlay.style.background = overlayState.background;
       this.previewOverlay.style.backgroundBlendMode = overlayState.blendMode;

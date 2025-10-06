@@ -241,11 +241,11 @@ export interface WeatherWidgetSettings {
 
   timeBaseColors: Record<TimeOfDayKey, string>;
 
-  timeTintColors: Record<TimeOfDayKey, string>;
-
   sunLayer: SunLayerSettings;
 
   gradients: GradientSettings;
+
+  gradientEdgePortion: number;
 
   verticalFade: VerticalFadeSettings;
 
@@ -363,12 +363,6 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     evening: "#FF6B6B",
     night: "#162331",
   },
-  timeTintColors: {
-    morning: "#FBD38D",
-    day: "#22D3EE",
-    evening: "#F472B6",
-    night: "#0F172A",
-  },
   sunLayer: {
 
     colors: {
@@ -478,6 +472,8 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     },
 
   },
+
+  gradientEdgePortion: 0.25,
 
   verticalFade: { top: 0.22, middle: 0.08 },
 

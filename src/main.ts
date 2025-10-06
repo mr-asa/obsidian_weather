@@ -399,23 +399,11 @@ export default class WeatherPlugin extends Plugin {
 
     });
 
-    if (!this.settings.timeTintColors) {
-
-      this.settings.timeTintColors = { ...defaults.timeTintColors };
-
-    }
-
-    TIME_OF_DAY_KEYS.forEach((key) => {
-
-      const tint = this.settings.timeTintColors[key];
-
-      this.settings.timeTintColors[key] = typeof tint === "string" && tint.trim().length > 0
-
-        ? tint.trim()
-
-        : defaults.timeTintColors[key];
-
-    });
+    const edgePortion = Number(this.settings.gradientEdgePortion);
+    const defaultEdgePortion = defaults.gradientEdgePortion ?? 0.25;
+    this.settings.gradientEdgePortion = Number.isFinite(edgePortion)
+      ? Math.min(Math.max(edgePortion, 0), 0.5)
+      : defaultEdgePortion;
 
     if (!this.settings.sunLayer) {
 
