@@ -289,14 +289,6 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     rgba(0,0,0,${settings.verticalFade.middle}) 80%,
     rgba(0,0,0,${settings.verticalFade.top}) 100%)`;
 
-  const highlight = computeSunHighlight(settings, input.timeOfDay);
-  const tintColor = ensureHex(input.tintColor, sunColor);
-  const leftMask = `linear-gradient(90deg,
-    ${rgba(tintColor, highlight)} 0%,
-    ${rgba(tintColor, highlight)} ${settings.leftPanel.width}%,
-    transparent ${settings.leftPanel.width + 5}%,
-    transparent 100%)`;
-
   const sunSymbol = sunLayer.icon?.symbol?.trim() || DEFAULT_SETTINGS.sunLayer.icon.symbol;
   const iconScale = clamp(sunLayer.icon?.scale ?? DEFAULT_SETTINGS.sunLayer.icon.scale, 0.2, 4);
 
@@ -326,8 +318,8 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   };
 
   return {
-    background: `${sunGradient}, ${verticalFade}, ${leftMask}`,
-    blendMode: isNight ? "multiply, multiply, screen" : "screen, normal, screen",
+    background: `${sunGradient}, ${verticalFade}`,
+    blendMode: isNight ? "multiply, multiply" : "screen, normal",
     icon,
   };
 }
