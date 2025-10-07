@@ -871,26 +871,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.refreshPreviewRow();
   }
   private renderGradientAccordion(parent: HTMLElement, strings: LocaleStrings): void {
-        this.addNumberSetting(
-      parent,
-      strings.settings.gradients.edgeWidthLabel,
-      this.plugin.settings.gradientEdgePortion,
-      (value) => {
-        const normalized = Math.min(0.5, Math.max(0, value));
-        this.plugin.settings.gradientEdgePortion = normalized;
-        return normalized;
-      },
-      {
-        min: 0,
-        max: 0.5,
-        step: "0.01",
-        desc: strings.settings.gradients.edgeWidthHint,
-        onChange: () => {
-          this.refreshGradientPreview();
-          this.refreshPreviewRow();
-        },
-      },
-    );
     this.renderGradientDetails(parent, strings.settings.gradients.time.title, (body) => {
             this.renderTimeGradientSection(body, strings);
     });
@@ -1230,6 +1210,26 @@ export class WeatherSettingsTab extends PluginSettingTab {
         const section = parent.createDiv({ cls: "weather-settings__section" });
     section.createEl("h3", { text: strings.settings.other.heading });
     section.createEl("p", { text: strings.settings.other.description, cls: "weather-settings__hint" });
+    this.addNumberSetting(
+      section,
+      strings.settings.gradients.edgeWidthLabel,
+      this.plugin.settings.gradientEdgePortion,
+      (value) => {
+        const normalized = Math.min(0.5, Math.max(0, value));
+        this.plugin.settings.gradientEdgePortion = normalized;
+        return normalized;
+      },
+      {
+        min: 0,
+        max: 0.5,
+        step: "0.01",
+        desc: strings.settings.gradients.edgeWidthHint,
+        onChange: () => {
+          this.refreshGradientPreview();
+          this.refreshPreviewRow();
+        },
+      },
+    );
     new Setting(section)
     .setName(strings.settings.other.showDateLabel)
       .setDesc(strings.settings.other.showDateDescription)

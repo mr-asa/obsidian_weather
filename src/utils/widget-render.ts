@@ -34,52 +34,82 @@ export function buildAlphaGradientLayer(
   options: { clampToUnit?: boolean; includeUnitStops?: boolean } = {},
 ): string {
   const clampToUnit = options.clampToUnit ?? true;
-  const includeUnitStops = options.includeUnitStops ?? clampToUnit;
+  const includeUnitStops = options.includeUnitStops ?? false;
+  const zero = rgba(color, 0);
 
   const rawStart = Math.min(startFrac, endFrac);
   const rawEnd = Math.max(startFrac, endFrac);
+  const rawRange = rawEnd - rawStart;
+
+  if (rawRange <= 0) {
+    return `linear-gradient(90deg, ${zero} 0%, ${zero} 100%)`;
+  }
 
   const domainStart = clampToUnit ? clamp01(rawStart) : rawStart;
   const domainEnd = clampToUnit ? clamp01(rawEnd) : rawEnd;
 
   if (domainEnd <= domainStart) {
-    const zero = rgba(color, 0);
     return `linear-gradient(90deg, ${zero} 0%, ${zero} 100%)`;
   }
 
-  const range = domainEnd - domainStart;
-  const samples = curve.sampleStops(128);
-  const steps = Math.max(1, samples.length - 1);
+  const visibleRange = domainEnd - domainStart;
+  let normalizedStart = clamp01((domainStart - rawStart) / rawRange);
+  let normalizedEnd = clamp01((domainEnd - rawStart) / rawRange);
+
+  if (domainStart > rawStart) {
+    normalizedStart = 0;
+  }
+  if (domainEnd < rawEnd) {
+    normalizedEnd = 1;
+  }
+
+  if (normalizedEnd <= normalizedStart) {
+    return `linear-gradient(90deg, ${zero} 0%, ${zero} 100%)`;
+  }
+
   const clampedScale = clamp01(scale);
-  const zero = rgba(color, 0);
 
   const stops: string[] = [];
-  const formatPct = (value: number) => `${Math.round(value * 1000) / 10}%`;
+  const formatPct = (value: number) => `${Math.round(value * 10000) / 100}%`;
+
+  const applyTransform = (baseAlpha: number, position: number) => {
+    const clamped = clamp01(baseAlpha * clampedScale);
+    return typeof transform === "function" ? transform(clamped, position) : clamped;
+  };
+
+  const startAlpha = applyTransform(curve.sample(normalizedStart), domainStart);
+  const endAlpha = applyTransform(curve.sample(normalizedEnd), domainEnd);
 
   const pushStop = (position: number, alpha: number) => {
     stops.push(`${rgba(color, clamp01(alpha))} ${formatPct(position)}`);
   };
 
-  pushStop(domainStart, 0);
+  if (domainStart > 0) {
+    pushStop(domainStart, 0);
+  }
 
-  for (let i = 0; i <= steps; i += 1) {
-    const t = steps === 0 ? 0 : i / steps;
-    const position = domainStart + range * t;
-    const base = samples[Math.min(i, samples.length - 1)];
-    const alphaBase = clamp01(base * clampedScale);
-    const alpha = typeof transform === "function" ? transform(alphaBase, position) : alphaBase;
+  pushStop(domainStart, startAlpha);
+
+  const sampleSteps = Math.max(32, Math.round(visibleRange * 256));
+  for (let i = 1; i < sampleSteps; i += 1) {
+    const t = i / sampleSteps;
+    const curveT = normalizedStart + (normalizedEnd - normalizedStart) * t;
+    const position = domainStart + visibleRange * t;
+    const alpha = applyTransform(curve.sample(curveT), position);
     pushStop(position, alpha);
   }
 
-  pushStop(domainEnd, 0);
+  pushStop(domainEnd, endAlpha);
+
+  if (domainEnd < 1) {
+    pushStop(domainEnd, 0);
+  }
 
   if (includeUnitStops) {
-    const hasZero = stops.some((stop) => stop.endsWith(" 0%"));
-    const hasHundred = stops.some((stop) => stop.endsWith(" 100%"));
-    if (!hasZero) {
+    if (domainStart > 0 && !stops.some((stop) => stop.endsWith(" 0%"))) {
       stops.unshift(`${zero} 0%`);
     }
-    if (!hasHundred) {
+    if (domainEnd < 1 && !stops.some((stop) => stop.endsWith(" 100%"))) {
       stops.push(`${zero} 100%`);
     }
   }
@@ -299,26 +329,33 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     opacityScale: 1,
   });
 
-  const bezierTransform = (value: number) => {
-    const t = clamp01(value);
-    const oneMinusT = 1 - t;
-    const bezier = (oneMinusT * oneMinusT * alphaLow)
-      + (2 * oneMinusT * t * alphaMid)
-      + (t * t * alphaPeak);
-    return clamp01(bezier);
+  const effectiveStart = Math.min(startFrac, endFrac);
+  const effectiveEnd = Math.max(startFrac, endFrac);
+  const effectiveSpan = Math.max(1e-6, effectiveEnd - effectiveStart);
+
+  const bezierTransform = (baseAlpha: number, position: number) => {
+    if (baseAlpha <= 0) {
+      return 0;
+    }
+    const normalized = clamp01((position - effectiveStart) / effectiveSpan);
+    const distanceFromCenter = Math.abs(normalized - 0.5) * 2;
+    const centerT = clamp01(1 - distanceFromCenter);
+    const oneMinusCenter = 1 - centerT;
+    const bezier = (oneMinusCenter * oneMinusCenter * alphaLow)
+      + (2 * oneMinusCenter * centerT * alphaMid)
+      + (centerT * centerT * alphaPeak);
+    return clamp01(baseAlpha * bezier);
   };
 
-  const sunGradient = endFrac > startFrac
-    ? buildAlphaGradientLayer(
-      sunColor,
-      sunCurve,
-      startFrac,
-      endFrac,
-      1,
-      bezierTransform,
-      { clampToUnit: false, includeUnitStops: false },
-    )
-    : `linear-gradient(90deg, transparent 0%, transparent 100%)`;
+  const sunGradient = buildAlphaGradientLayer(
+    sunColor,
+    sunCurve,
+    startFrac,
+    endFrac,
+    1,
+    bezierTransform,
+    { clampToUnit: true, includeUnitStops: true },
+  );
 
   const verticalFade = `linear-gradient(180deg,
     rgba(0,0,0,${settings.verticalFade.top}) 0%,
