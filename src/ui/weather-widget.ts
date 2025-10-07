@@ -10,6 +10,7 @@ import type { WeatherSnapshot } from "../services/weather-service";
 import { clamp, lerp } from "../utils/math";
 import { ensureHex, lerpColorGamma, rgba } from "../utils/color";
 import { buildSunOverlayState, computeGradientLayers } from "../utils/widget-render";
+import { computeSolarAltitude, timezoneOffsetFromIdentifier } from "../utils/solar";
 const MINUTES_IN_DAY = 1_440;
 const MS_PER_MINUTE = 60_000;
 const TIME_EMOJIS: Record<TimeOfDayKey, string> = {
@@ -146,6 +147,28 @@ function minutesOfDayAtLon(date: Date, lon: number): number {
 function minutesOfDayWithOffset(date: Date, offsetMinutes: number): number {
   const shifted = shiftedDateByOffset(date, offsetMinutes);
   return shifted.getHours() * 60 + shifted.getMinutes();
+}
+
+function resolveTimezoneOffsetMinutes(
+  date: Date,
+  timezone: string | null,
+  explicitOffsetMinutes: number | null,
+  longitude: number,
+): number {
+  if (typeof explicitOffsetMinutes === "number" && Number.isFinite(explicitOffsetMinutes)) {
+    return explicitOffsetMinutes;
+  }
+  if (timezone) {
+    const resolved = timezoneOffsetFromIdentifier(date, timezone);
+    if (typeof resolved === "number" && Number.isFinite(resolved)) {
+      return resolved;
+    }
+  }
+  const fallback = clampOffsetByLon(longitude);
+  if (Number.isFinite(fallback)) {
+    return fallback;
+  }
+  return -date.getTimezoneOffset();
 }
 
 function formatTimeForCity(
@@ -338,10 +361,11 @@ export class WeatherWidget {
         continue;
       }
       const timezone = snapshot.timezone;
-      const timezoneOffset = snapshot.timezoneOffsetMinutes ?? null;
+      const explicitOffset = snapshot.timezoneOffsetMinutes ?? null;
       const now = new Date();
-      const localTime = formatTimeForCity(now, timezone, timezoneOffset, city.longitude, locale);
-      const localDate = formatDateForCity(now, timezone, timezoneOffset, city.longitude, locale);
+      const cityOffsetMinutes = resolveTimezoneOffsetMinutes(now, timezone, explicitOffset, city.longitude);
+      const localTime = formatTimeForCity(now, timezone, cityOffsetMinutes, city.longitude, locale);
+      const localDate = formatDateForCity(now, timezone, cityOffsetMinutes, city.longitude, locale);
       const [hours] = localTime.split(":");
       const hourValue = Number.parseInt(hours ?? "0", 10);
       const timeOfDay = getTimeOfDay(Number.isFinite(hourValue) ? hourValue : 0);
@@ -353,10 +377,10 @@ export class WeatherWidget {
       const weatherIcon = categoryStyle?.icon?.trim() ?? WEATHER_FALLBACK_ICON;
       const weatherColor = ensureHex(categoryStyle?.color ?? "#6b7280", "#6b7280");
       const weatherLabel = strings.weatherConditions[category] ?? category;
-      const sunPosition = sunPositionPercent(snapshot.sunrise, snapshot.sunset, timezone, timezoneOffset, city.longitude);
+      const sunPosition = sunPositionPercent(snapshot.sunrise, snapshot.sunset, timezone, cityOffsetMinutes, city.longitude);
       const sunriseMinutes = parseHmFromIsoLocal(snapshot.sunrise);
       const sunsetMinutes = parseHmFromIsoLocal(snapshot.sunset);
-      const timeColor = timeColorBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, timezoneOffset, city.longitude);
+      const timeColor = timeColorBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, cityOffsetMinutes, city.longitude);
       const baseFallback = ensureHex(settings.timeBaseColors[timeOfDay]);
       const baseColor = lerpColorGamma(baseFallback, timeColor, 0.6);
       const temperatureColor = tempToColor(snapshot.temperature, settings.temperatureGradient);
@@ -376,9 +400,14 @@ export class WeatherWidget {
       const overlay = row.createDiv({ cls: "sun-overlay" });
       const nowMinutes = timezone
         ? minutesOfDayInTimezone(now, timezone)
-        : typeof timezoneOffset === "number" && Number.isFinite(timezoneOffset)
-          ? minutesOfDayWithOffset(now, timezoneOffset)
-          : minutesOfDayAtLon(now, city.longitude);
+        : minutesOfDayWithOffset(now, cityOffsetMinutes);
+      const cityLocalDate = shiftedDateByOffset(now, cityOffsetMinutes);
+      const sunAltitude = computeSolarAltitude(
+        cityLocalDate,
+        city.latitude,
+        city.longitude,
+        cityOffsetMinutes,
+      );
       const overlayState = buildSunOverlayState({
         settings,
         nowMinutes,
@@ -386,6 +415,7 @@ export class WeatherWidget {
         sunsetMinutes,
         sunPositionPercent: sunPosition,
         timeOfDay,
+        sunAltitudeDegrees: sunAltitude ?? undefined,
       });
       overlay.style.background = overlayState.background;
       overlay.style.backgroundBlendMode = overlayState.blendMode;

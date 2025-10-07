@@ -216,6 +216,7 @@ export interface SunOverlayInput {
   sunsetMinutes: number | null;
   sunPositionPercent: number;
   timeOfDay: TimeOfDayKey;
+  sunAltitudeDegrees?: number | null;
 }
 
 export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
@@ -317,7 +318,10 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   alphaMid = clamp01(alphaMid * opacityScale);
   alphaLow = clamp01(alphaLow * opacityScale);
 
-  const centerFraction = clamp(input.sunPositionPercent / 100, 0, 1);
+  const rawCenter = input.sunPositionPercent;
+  const centerFraction = Number.isFinite(rawCenter)
+    ? clamp(rawCenter / 100, 0, 1)
+    : 0;
   const startVisible = centerFraction - sunHalfWidth;
   const endVisible = centerFraction + sunHalfWidth;
   const startFrac = (startVisible + offsetFraction) / scaleFactor;
@@ -367,14 +371,26 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const iconScale = clamp(sunLayer.icon?.scale ?? DEFAULT_SETTINGS.sunLayer.icon.scale, 0.2, 4);
 
   const sunProgress = clamp01(centerFraction);
-  const sunElevation = Math.sin(Math.PI * sunProgress);
-  const horizonTop = 90;
-  const zenithTop = 10;
-  const iconTop = clamp(horizonTop - sunElevation * (horizonTop - zenithTop), zenithTop, horizonTop);
+  const altitudeFromInput = typeof input.sunAltitudeDegrees === "number" && Number.isFinite(input.sunAltitudeDegrees)
+    ? input.sunAltitudeDegrees
+    : null;
+  const computedAltitudeRatio = altitudeFromInput != null
+    ? clamp(altitudeFromInput / 90, 0, 1)
+    : Math.sin(Math.PI * sunProgress);
+  const altitudeRatio = Number.isFinite(computedAltitudeRatio)
+    ? clamp01(computedAltitudeRatio)
+    : 0;
+  const horizonTop = 86;
+  const zenithTop = 14;
+  const iconTop = clamp(horizonTop - altitudeRatio * (horizonTop - zenithTop), zenithTop, horizonTop);
+  const gradientCenterBase = effectiveStart + effectiveSpan / 2;
+  const gradientCenterFraction = Number.isFinite(gradientCenterBase)
+    ? clamp01(gradientCenterBase)
+    : clamp01((centerFraction + offsetFraction) / scaleFactor);
 
   const icon: SunOverlayIconState = {
     symbol: sunSymbol,
-    leftPercent: clamp(((centerFraction + offsetFraction) / scaleFactor) * 100, 0, 100),
+    leftPercent: gradientCenterFraction * 100,
     topPercent: iconTop,
     scale: iconScale,
     color: sunColor,

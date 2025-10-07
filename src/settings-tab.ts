@@ -15,6 +15,7 @@ import {
 import { clamp, lerp, normalize } from "./utils/math";
 import { ensureHex, lerpColorGamma, rgba } from "./utils/color";
 import { DEFAULT_ALPHA_EASING_PROFILE, type AlphaEasingProfile } from "./utils/alpha-gradient";
+import { computeSolarAltitude } from "./utils/solar";
 import { buildSunOverlayState, computeGradientLayers } from "./utils/widget-render";
 import { createId } from "./utils/id";
 const LAT_MIN = -90;
@@ -31,6 +32,10 @@ const PREVIEW_DAY_START = 0.3;
 const PREVIEW_DAY_SPAN = 0.4;
 const MINUTES_IN_DAY = 1_440;
 const SECONDS_IN_DAY = 86_400;
+const MS_PER_MINUTE = 60_000;
+const PREVIEW_LATITUDE = 55.7558;
+const PREVIEW_LONGITUDE = 37.6176;
+const PREVIEW_TIMEZONE_OFFSET = 180;
 const PREVIEW_TIME_EMOJIS: Record<TimeOfDayKey, string> = {
   morning: "🌅",
   day: "🌞",
@@ -54,6 +59,12 @@ const ALPHA_PROFILE_OPTIONS: readonly AlphaEasingProfile[] = [
 ];
 function clamp01(value: number): number {
   return clamp(value, 0, 1);
+}
+
+function shiftedDateByOffset(date: Date, targetOffsetMin: number): Date {
+  const localOffset = -date.getTimezoneOffset();
+  const delta = targetOffsetMin - localOffset;
+  return new Date(date.getTime() + delta * MS_PER_MINUTE);
 }
 
 function tempToColorSample(temperature: number, stops: TemperatureColorStop[]): string {
@@ -1063,6 +1074,16 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const dayEnd = clamp(dayStart + daySpan, 0, 1);
     const clampedTime = clamp(this.sampleTimeMinutes, 0, MINUTES_IN_DAY - 1);
     const localSeconds = clampedTime * 60;
+    const previewBase = new Date();
+    previewBase.setHours(0, 0, 0, 0);
+    const previewDate = new Date(previewBase.getTime() + clampedTime * MS_PER_MINUTE);
+    const previewLocalDate = shiftedDateByOffset(previewDate, PREVIEW_TIMEZONE_OFFSET);
+    const sunAltitude = computeSolarAltitude(
+      previewLocalDate,
+      PREVIEW_LATITUDE,
+      PREVIEW_LONGITUDE,
+      PREVIEW_TIMEZONE_OFFSET,
+    );
     const sunriseSeconds = dayStart * SECONDS_IN_DAY;
     const sunsetSeconds = dayEnd * SECONDS_IN_DAY;
     const hours = Math.floor(clampedTime / 60);
@@ -1095,6 +1116,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         sunsetMinutes: sunsetMinutesValue,
         sunPositionPercent,
         timeOfDay,
+        sunAltitudeDegrees: sunAltitude ?? undefined,
       });
       this.previewOverlay.style.background = overlayState.background;
       this.previewOverlay.style.backgroundBlendMode = overlayState.blendMode;
