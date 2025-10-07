@@ -424,7 +424,8 @@ export class WeatherWidget {
       overlay.style.width = `${overlayState.widthPercent}%`;
       overlay.style.top = "0";
       overlay.style.bottom = "0";
-      const sunIconEl = overlay.createSpan({ cls: "sun-overlay__icon" });
+      const sunIconEl = row.createSpan({ cls: "sun-overlay__icon" });
+      sunIconEl.setAttr("aria-hidden", "true");
       sunIconEl.textContent = overlayState.icon.symbol;
       sunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
       sunIconEl.style.top = `${overlayState.icon.topPercent}%`;

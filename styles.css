@@ -182,7 +182,7 @@
 
 
 
-.city-row > *:not(.sun-overlay) {
+.city-row > *:not(.sun-overlay):not(.sun-overlay__icon) {
 
   position: relative;
 

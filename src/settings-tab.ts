@@ -815,7 +815,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
     row.style.backgroundSize = "100% 100%, 100% 100%, 100% 100%";
     this.previewRow = row;
     this.previewOverlay = row.createDiv({ cls: "sun-overlay" });
-    this.previewSunIconEl = this.previewOverlay.createSpan({ cls: "sun-overlay__icon" });
+    this.previewSunIconEl = row.createSpan({ cls: "sun-overlay__icon" });
+    this.previewSunIconEl.setAttr("aria-hidden", "true");
     const cityEl = row.createDiv({ cls: "weather-widget__cell weather-widget__city" });
     cityEl.textContent = strings.settings.preview.sampleCity;
     const timeCell = row.createDiv({ cls: "weather-widget__cell weather-widget__time" });

@@ -195,6 +195,7 @@ export function computeSunHighlight(settings: WeatherWidgetSettings, timeOfDay: 
 export interface SunOverlayIconState {
   symbol: string;
   leftPercent: number;
+  overlayLeftPercent: number;
   topPercent: number;
   scale: number;
   color: string;
@@ -387,10 +388,13 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const gradientCenterFraction = Number.isFinite(gradientCenterBase)
     ? clamp01(gradientCenterBase)
     : clamp01((centerFraction + offsetFraction) / scaleFactor);
+  const iconLeftOverlayPercent = gradientCenterFraction * 100;
+  const iconLeftRowPercent = clamp01(centerFraction) * 100;
 
   const icon: SunOverlayIconState = {
     symbol: sunSymbol,
-    leftPercent: gradientCenterFraction * 100,
+    leftPercent: iconLeftRowPercent,
+    overlayLeftPercent: iconLeftOverlayPercent,
     topPercent: iconTop,
     scale: iconScale,
     color: sunColor,
