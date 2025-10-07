@@ -467,6 +467,14 @@ export default class WeatherPlugin extends Plugin {
 
       sunLayer.nightHighlight = Number.isFinite(sunLayer.nightHighlight) ? sunLayer.nightHighlight : fallback.nightHighlight;
 
+      const overflowFallback = Number.isFinite(fallback.gradientOverflowPercent)
+        ? fallback.gradientOverflowPercent
+        : 50;
+      const overflowValue = Number(sunLayer.gradientOverflowPercent);
+      sunLayer.gradientOverflowPercent = Number.isFinite(overflowValue)
+        ? Math.min(Math.max(overflowValue, 0), 200)
+        : overflowFallback;
+
     }
 
     if (!this.settings.gradients) {

@@ -129,14 +129,25 @@ export function createAlphaGradientCurve(options: AlphaGradientOptions = {}): Al
 
   const baseEdgeWidth = (1 - innerOpacityRatio) / 2;
 
-  const leftWidth = enableLeft ? Math.max(0, baseEdgeWidth) : 0;
-  const rightWidth = enableRight ? Math.max(0, baseEdgeWidth) : 0;
+  let leftWidth = enableLeft ? Math.max(0, baseEdgeWidth) : 0;
+  let rightWidth = enableRight ? Math.max(0, baseEdgeWidth) : 0;
 
-  const innerWidth = clamp01(
-    innerOpacityRatio
-    + (!enableLeft ? Math.max(0, baseEdgeWidth) : 0)
-    + (!enableRight ? Math.max(0, baseEdgeWidth) : 0),
-  );
+  if (!enableLeft && enableRight) {
+    rightWidth += Math.max(0, baseEdgeWidth);
+  }
+
+  if (!enableRight && enableLeft) {
+    leftWidth += Math.max(0, baseEdgeWidth);
+  }
+
+  let innerWidth = innerOpacityRatio;
+  if (!enableLeft && !enableRight) {
+    innerWidth = 1;
+    leftWidth = 0;
+    rightWidth = 0;
+  }
+
+  innerWidth = clamp01(innerWidth);
 
   const totalWidth = leftWidth + innerWidth + rightWidth;
   const normalizationFactor = totalWidth > 0 ? 1 / totalWidth : 0;

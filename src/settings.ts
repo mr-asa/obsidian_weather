@@ -123,6 +123,8 @@ export interface SunLayerSettings {
 
   gradientOpacity: number;
 
+  gradientOverflowPercent: number;
+
   icon: SunIconSettings;
 
   transitions: SunColorTransitions;
@@ -402,6 +404,8 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     gradientInnerRatio: 0.5,
 
     gradientOpacity: 0.85,
+
+    gradientOverflowPercent: 50,
 
     icon: { symbol: "◉", scale: 1 },
 

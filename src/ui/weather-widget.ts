@@ -740,6 +740,11 @@ export class WeatherWidget {
       overlay.style.background = overlayState.background;
 
       overlay.style.backgroundBlendMode = overlayState.blendMode;
+      overlay.style.left = `-${overlayState.offsetPercent}%`;
+      overlay.style.right = "auto";
+      overlay.style.width = `${overlayState.widthPercent}%`;
+      overlay.style.top = "0";
+      overlay.style.bottom = "0";
 
       const sunIconEl = overlay.createSpan({ cls: "sun-overlay__icon" });
 

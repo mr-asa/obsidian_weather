@@ -501,8 +501,8 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       gradients: {
         heading: "Градиенты слоёв",
         description: "Настройте переходы фоновых слоев. Общая панель предпросмотра выше обновляется мгновенно.",
-        edgeWidthLabel: "Edge gradient width",
-        edgeWidthHint: "Base fraction (0-0.5) that controls how wide the weather and temperature gradients extend from the edges before day-length scaling.",
+        edgeWidthLabel: "Ширина краевого градиента",
+        edgeWidthHint: "Базовая доля (0-0.5), определяющая ширину градиентов погоды и температуры у краёв строки до учёта длины дня.",
         time: {
           title: "Слой времени",
           mixRatio: "Смешение слоя времени",

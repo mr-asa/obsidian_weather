@@ -186,6 +186,8 @@ export interface SunOverlayState {
   background: string;
   blendMode: string;
   icon: SunOverlayIconState;
+  widthPercent: number;
+  offsetPercent: number;
 }
 
 export interface SunOverlayInput {
@@ -206,7 +208,9 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     : sunLayer.width * 2;
   const sunHalfWidthPercent = clamp(gradientWidthPercent / 2, 0, 50);
   const sunHalfWidth = sunHalfWidthPercent / 100;
-  const overflowFraction = 0.5;
+  const overflowFraction = clamp(sunLayer.gradientOverflowPercent ?? 50, 0, 200) / 100;
+  const scaleFactor = 1 + overflowFraction * 2;
+  const offsetFraction = overflowFraction;
 
   const dayColor = ensureHex(sunLayer.colors.day, "#FFD200");
   const sunriseColor = ensureHex(sunLayer.colors.sunrise, dayColor);
@@ -295,24 +299,17 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   alphaLow = clamp01(alphaLow * opacityScale);
 
   const centerFraction = clamp(input.sunPositionPercent / 100, 0, 1);
+  const startVisible = clamp01(centerFraction - sunHalfWidth);
+  const endVisible = clamp01(centerFraction + sunHalfWidth);
+  const expectedWidth = Math.max(1e-6, sunHalfWidth * 2);
+  const visiblePortion = clamp01((endVisible - startVisible) / expectedWidth);
 
-  let start = centerFraction - sunHalfWidth;
-  let end = centerFraction + sunHalfWidth;
+  alphaPeak *= visiblePortion;
+  alphaMid *= visiblePortion;
+  alphaLow *= visiblePortion;
 
-  if (start < 0 && start > -overflowFraction) {
-    const extend = -overflowFraction - start;
-    start += extend;
-    end -= extend;
-  }
-
-  if (end > 1 && end < 1 + overflowFraction) {
-    const extend = 1 + overflowFraction - end;
-    end += extend;
-    start -= extend;
-  }
-
-  const startFrac = start;
-  const endFrac = end;
+  const startFrac = clamp01((startVisible + offsetFraction) / scaleFactor);
+  const endFrac = clamp01((endVisible + offsetFraction) / scaleFactor);
 
   const sunCurve = createAlphaGradientCurve({
     profile: sunLayer.alphaProfile ?? DEFAULT_ALPHA_EASING_PROFILE,
@@ -330,15 +327,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   };
 
   const sunGradient = endFrac > startFrac
-    ? buildAlphaGradientLayer(
-      sunColor,
-      sunCurve,
-      startFrac,
-      endFrac,
-      1,
-      bezierTransform,
-      { clampToUnit: false, includeUnitStops: false },
-    )
+    ? buildAlphaGradientLayer(sunColor, sunCurve, startFrac, endFrac, 1, bezierTransform)
     : `linear-gradient(90deg, transparent 0%, transparent 100%)`;
 
   const verticalFade = `linear-gradient(180deg,
@@ -358,7 +347,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
 
   const icon: SunOverlayIconState = {
     symbol: sunSymbol,
-    leftPercent: clamp(((start + end) / 2) * 100, -50, 150),
+    leftPercent: clamp(((centerFraction + offsetFraction) / scaleFactor) * 100, 0, 100),
     topPercent: iconTop,
     scale: iconScale,
     color: sunColor,
@@ -369,5 +358,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     background: `${sunGradient}, ${verticalFade}`,
     blendMode: isNight ? "multiply, multiply" : "screen, normal",
     icon,
+    widthPercent: scaleFactor * 100,
+    offsetPercent: offsetFraction * 100,
   };
 }
