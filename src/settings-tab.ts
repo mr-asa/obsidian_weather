@@ -1949,9 +1949,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
       });
       this.previewOverlay.style.background = overlayState.background;
       this.previewOverlay.style.backgroundBlendMode = overlayState.blendMode;
-      this.previewOverlay.style.left = `-${overlayState.offsetPercent}%`;
+      this.previewOverlay.style.left = "0";
       this.previewOverlay.style.right = "auto";
-      this.previewOverlay.style.width = `${overlayState.widthPercent}%`;
+      this.previewOverlay.style.width = "100%";
       this.previewOverlay.style.top = "0";
       this.previewOverlay.style.bottom = "0";
       if (this.previewSunIconEl) {

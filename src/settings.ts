@@ -379,13 +379,13 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
 
     },
 
-    alphaDay: { peak: 0.9, mid: 0.55, low: 0.22 },
+    alphaDay: { peak: 1, mid: 0.7, low: 0.3 },
 
-    alphaNight: { peak: 0.3, mid: 0.18, low: 0.08 },
+    alphaNight: { peak: 0.45, mid: 0.25, low: 0.1 },
 
     transitionMinutes: 60,
 
-    width: 9,
+    width: 8,
 
     softnessInner: 0.35,
 
@@ -397,13 +397,13 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
 
     nightHighlight: 0.08,
 
-    alphaProfile: "cubicInOut",
+    alphaProfile: "quadIn",
 
-    gradientWidthPercent: 60,
+    gradientWidthPercent: 8,
 
-    gradientInnerRatio: 0.5,
+    gradientInnerRatio: 0.04,
 
-    gradientOpacity: 0.85,
+    gradientOpacity: 1,
 
     gradientOverflowPercent: 50,
 

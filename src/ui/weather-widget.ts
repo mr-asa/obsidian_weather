@@ -740,9 +740,9 @@ export class WeatherWidget {
       overlay.style.background = overlayState.background;
 
       overlay.style.backgroundBlendMode = overlayState.blendMode;
-      overlay.style.left = `-${overlayState.offsetPercent}%`;
+      overlay.style.left = "0";
       overlay.style.right = "auto";
-      overlay.style.width = `${overlayState.widthPercent}%`;
+      overlay.style.width = "100%";
       overlay.style.top = "0";
       overlay.style.bottom = "0";
 

@@ -39,59 +39,48 @@ export function buildAlphaGradientLayer(
   const rawStart = Math.min(startFrac, endFrac);
   const rawEnd = Math.max(startFrac, endFrac);
 
-  const start = clampToUnit ? clamp01(rawStart) : rawStart;
-  const end = clampToUnit ? clamp01(rawEnd) : rawEnd;
+  const domainStart = clampToUnit ? clamp01(rawStart) : rawStart;
+  const domainEnd = clampToUnit ? clamp01(rawEnd) : rawEnd;
 
-  const samples = curve.sampleStops(32);
+  if (domainEnd <= domainStart) {
+    const zero = rgba(color, 0);
+    return `linear-gradient(90deg, ${zero} 0%, ${zero} 100%)`;
+  }
+
+  const range = domainEnd - domainStart;
+  const samples = curve.sampleStops(128);
   const steps = Math.max(1, samples.length - 1);
   const clampedScale = clamp01(scale);
   const zero = rgba(color, 0);
-  const startPct = Math.round(start * 1000) / 10;
-  const endPct = Math.round(end * 1000) / 10;
-
-  if (end <= start) {
-    if (includeUnitStops) {
-      return `linear-gradient(90deg, ${zero} 0%, ${zero} 100%)`;
-    }
-    const tailPct = Math.max(endPct, 100);
-    return `linear-gradient(90deg, ${zero} ${Math.min(startPct, 0)}%, ${zero} ${endPct}%, ${zero} ${tailPct}%)`;
-  }
 
   const stops: string[] = [];
+  const formatPct = (value: number) => `${Math.round(value * 1000) / 10}%`;
 
-  if (includeUnitStops) {
-    stops.push(`${zero} 0%`);
-    if (start > 0) {
-      stops.push(`${zero} ${startPct}%`);
-    }
-  } else {
-    const extraHeadPct = Math.min(startPct, 0);
-    stops.push(`${zero} ${startPct}%`);
-    if (extraHeadPct < startPct) {
-      stops.unshift(`${zero} ${extraHeadPct}%`);
-    }
-  }
+  const pushStop = (position: number, alpha: number) => {
+    stops.push(`${rgba(color, clamp01(alpha))} ${formatPct(position)}`);
+  };
+
+  pushStop(domainStart, 0);
 
   for (let i = 0; i <= steps; i += 1) {
     const t = steps === 0 ? 0 : i / steps;
-    const position = start + (end - start) * t;
-    const pct = Math.round(position * 1000) / 10;
+    const position = domainStart + range * t;
     const base = samples[Math.min(i, samples.length - 1)];
     const alphaBase = clamp01(base * clampedScale);
     const alpha = typeof transform === "function" ? transform(alphaBase, position) : alphaBase;
-    stops.push(`${rgba(color, alpha)} ${pct}%`);
+    pushStop(position, alpha);
   }
 
+  pushStop(domainEnd, 0);
+
   if (includeUnitStops) {
-    if (end < 1) {
-      stops.push(`${zero} ${endPct}%`);
+    const hasZero = stops.some((stop) => stop.endsWith(" 0%"));
+    const hasHundred = stops.some((stop) => stop.endsWith(" 100%"));
+    if (!hasZero) {
+      stops.unshift(`${zero} 0%`);
     }
-    stops.push(`${zero} 100%`);
-  } else {
-    stops.push(`${zero} ${endPct}%`);
-    const tailPct = Math.max(endPct, 100);
-    if (tailPct > endPct) {
-      stops.push(`${zero} ${tailPct}%`);
+    if (!hasHundred) {
+      stops.push(`${zero} 100%`);
     }
   }
 
@@ -209,8 +198,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const sunHalfWidthPercent = clamp(gradientWidthPercent / 2, 0, 50);
   const sunHalfWidth = sunHalfWidthPercent / 100;
   const overflowFraction = clamp(sunLayer.gradientOverflowPercent ?? 50, 0, 200) / 100;
-  const scaleFactor = 1 + overflowFraction * 2;
-  const offsetFraction = overflowFraction;
+  const overflowWidth = sunHalfWidth * overflowFraction;
 
   const dayColor = ensureHex(sunLayer.colors.day, "#FFD200");
   const sunriseColor = ensureHex(sunLayer.colors.sunrise, dayColor);
@@ -299,17 +287,8 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   alphaLow = clamp01(alphaLow * opacityScale);
 
   const centerFraction = clamp(input.sunPositionPercent / 100, 0, 1);
-  const startVisible = clamp01(centerFraction - sunHalfWidth);
-  const endVisible = clamp01(centerFraction + sunHalfWidth);
-  const expectedWidth = Math.max(1e-6, sunHalfWidth * 2);
-  const visiblePortion = clamp01((endVisible - startVisible) / expectedWidth);
-
-  alphaPeak *= visiblePortion;
-  alphaMid *= visiblePortion;
-  alphaLow *= visiblePortion;
-
-  const startFrac = clamp01((startVisible + offsetFraction) / scaleFactor);
-  const endFrac = clamp01((endVisible + offsetFraction) / scaleFactor);
+  const startFrac = centerFraction - sunHalfWidth - overflowWidth;
+  const endFrac = centerFraction + sunHalfWidth + overflowWidth;
 
   const sunCurve = createAlphaGradientCurve({
     profile: sunLayer.alphaProfile ?? DEFAULT_ALPHA_EASING_PROFILE,
@@ -327,7 +306,15 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   };
 
   const sunGradient = endFrac > startFrac
-    ? buildAlphaGradientLayer(sunColor, sunCurve, startFrac, endFrac, 1, bezierTransform)
+    ? buildAlphaGradientLayer(
+      sunColor,
+      sunCurve,
+      startFrac,
+      endFrac,
+      1,
+      bezierTransform,
+      { clampToUnit: false, includeUnitStops: true },
+    )
     : `linear-gradient(90deg, transparent 0%, transparent 100%)`;
 
   const verticalFade = `linear-gradient(180deg,
@@ -347,7 +334,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
 
   const icon: SunOverlayIconState = {
     symbol: sunSymbol,
-    leftPercent: clamp(((centerFraction + offsetFraction) / scaleFactor) * 100, 0, 100),
+    leftPercent: clamp(centerFraction * 100, 0, 100),
     topPercent: iconTop,
     scale: iconScale,
     color: sunColor,
@@ -358,7 +345,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     background: `${sunGradient}, ${verticalFade}`,
     blendMode: isNight ? "multiply, multiply" : "screen, normal",
     icon,
-    widthPercent: scaleFactor * 100,
-    offsetPercent: offsetFraction * 100,
+    widthPercent: 100,
+    offsetPercent: 0,
   };
 }
