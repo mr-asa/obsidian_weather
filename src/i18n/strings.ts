@@ -535,17 +535,11 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         },
       },
       other: {
-
         heading: "Прочее",
-
         description: "Дополнительные опции виджета.",
-
         showDateLabel: "Показывать дату, когда день отличается",
-
         showDateDescription: "Добавлять локальную дату, если она отличается от текущей.",
-
       },
-
      reset: {
         heading: "Сброс настроек",
         description: "Вернуть все параметры к значениям по умолчанию.",
@@ -599,9 +593,3 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
 export function getLocaleStrings(locale: LocaleCode): LocaleStrings {
   return LOCALE_STRINGS[locale] ?? LOCALE_STRINGS[DEFAULT_LOCALE];
 }
-
-
-
-
-
-

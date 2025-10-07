@@ -198,7 +198,8 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const sunHalfWidthPercent = clamp(gradientWidthPercent / 2, 0, 50);
   const sunHalfWidth = sunHalfWidthPercent / 100;
   const overflowFraction = clamp(sunLayer.gradientOverflowPercent ?? 50, 0, 200) / 100;
-  const overflowWidth = sunHalfWidth * overflowFraction;
+  const scaleFactor = 1 + overflowFraction * 2;
+  const offsetFraction = overflowFraction;
 
   const dayColor = ensureHex(sunLayer.colors.day, "#FFD200");
   const sunriseColor = ensureHex(sunLayer.colors.sunrise, dayColor);
@@ -287,8 +288,10 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   alphaLow = clamp01(alphaLow * opacityScale);
 
   const centerFraction = clamp(input.sunPositionPercent / 100, 0, 1);
-  const startFrac = centerFraction - sunHalfWidth - overflowWidth;
-  const endFrac = centerFraction + sunHalfWidth + overflowWidth;
+  const startVisible = centerFraction - sunHalfWidth;
+  const endVisible = centerFraction + sunHalfWidth;
+  const startFrac = (startVisible + offsetFraction) / scaleFactor;
+  const endFrac = (endVisible + offsetFraction) / scaleFactor;
 
   const sunCurve = createAlphaGradientCurve({
     profile: sunLayer.alphaProfile ?? DEFAULT_ALPHA_EASING_PROFILE,
@@ -313,7 +316,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
       endFrac,
       1,
       bezierTransform,
-      { clampToUnit: false, includeUnitStops: true },
+      { clampToUnit: false, includeUnitStops: false },
     )
     : `linear-gradient(90deg, transparent 0%, transparent 100%)`;
 
@@ -334,7 +337,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
 
   const icon: SunOverlayIconState = {
     symbol: sunSymbol,
-    leftPercent: clamp(centerFraction * 100, 0, 100),
+    leftPercent: clamp(((centerFraction + offsetFraction) / scaleFactor) * 100, 0, 100),
     topPercent: iconTop,
     scale: iconScale,
     color: sunColor,
@@ -345,7 +348,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     background: `${sunGradient}, ${verticalFade}`,
     blendMode: isNight ? "multiply, multiply" : "screen, normal",
     icon,
-    widthPercent: 100,
-    offsetPercent: 0,
+    widthPercent: scaleFactor * 100,
+    offsetPercent: offsetFraction * 100,
   };
 }
