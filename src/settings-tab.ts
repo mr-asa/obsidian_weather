@@ -811,22 +811,25 @@ export class WeatherSettingsTab extends PluginSettingTab {
     previewSection.createEl("h4", { text: strings.settings.preview.heading });
     previewSection.createEl("p", { text: strings.settings.preview.description, cls: "weather-settings__hint" });
     const widgetWrapper = previewSection.createDiv({ cls: "weather-settings__preview-widget" });
-    const row = widgetWrapper.createDiv({ cls: "weather-widget__row weather-settings__preview-row" });
+    const row = widgetWrapper.createDiv({ cls: "city-row weather-widget__row weather-settings__preview-row" });
     row.style.backgroundSize = "100% 100%, 100% 100%, 100% 100%";
     this.previewRow = row;
     this.previewOverlay = row.createDiv({ cls: "sun-overlay" });
     this.previewSunIconEl = row.createSpan({ cls: "sun-overlay__icon" });
     this.previewSunIconEl.setAttr("aria-hidden", "true");
-    const cityEl = row.createDiv({ cls: "weather-widget__cell weather-widget__city" });
+    const leftGroup = row.createDiv({ cls: "city-row__group city-row__group--left" });
+    const weatherCell = leftGroup.createDiv({ cls: "weather-info weather-widget__cell weather-widget__weather" });
+    this.previewWeatherIconEl = weatherCell.createSpan({ cls: "weather-widget__icon" });
+    this.previewWeatherTextEl = weatherCell.createSpan();
+    const cityEl = leftGroup.createDiv({ cls: "city-name weather-widget__cell weather-widget__city" });
     cityEl.textContent = strings.settings.preview.sampleCity;
-    const timeCell = row.createDiv({ cls: "weather-widget__cell weather-widget__time" });
+    const rightGroup = row.createDiv({ cls: "city-row__group city-row__group--right" });
+    const timeCell = rightGroup.createDiv({ cls: "time-info weather-widget__cell weather-widget__time" });
     this.previewTimeIconEl = timeCell.createSpan({ cls: "weather-widget__icon" });
     this.previewTimeTextEl = timeCell.createSpan();
     this.previewDateEl = timeCell.createSpan({ cls: "weather-widget__date" });
-    const weatherCell = row.createDiv({ cls: "weather-widget__cell weather-widget__weather" });
-    this.previewWeatherIconEl = weatherCell.createSpan({ cls: "weather-widget__icon" });
-    this.previewWeatherTextEl = weatherCell.createSpan();
-    this.previewTemperatureEl = row.createDiv({ cls: "weather-widget__cell weather-widget__temperature" }).createSpan();
+    const temperatureContainer = rightGroup.createDiv({ cls: "temperature weather-widget__cell weather-widget__temperature" });
+    this.previewTemperatureEl = temperatureContainer.createSpan();
     const controls = previewSection.createDiv({ cls: "weather-settings__preview-controls" });
     const timeSetting = new Setting(controls)
     .setName(strings.settings.preview.timeLabel)
@@ -1124,8 +1127,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
       this.previewOverlay.style.left = `-${overlayState.offsetPercent}%`;
       this.previewOverlay.style.right = "auto";
       this.previewOverlay.style.width = `${overlayState.widthPercent}%`;
-      this.previewOverlay.style.top = "0";
-      this.previewOverlay.style.bottom = "0";
+      this.previewOverlay.style.top = "-16px";
+      this.previewOverlay.style.bottom = "-16px";
       if (this.previewSunIconEl) {
         this.previewSunIconEl.textContent = overlayState.icon.symbol;
         this.previewSunIconEl.style.left = `${overlayState.icon.leftPercent}%`;

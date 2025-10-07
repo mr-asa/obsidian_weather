@@ -42,17 +42,15 @@
 
   display: grid;
 
-  grid-template-columns: minmax(160px, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(100px, 0.8fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 
-  align-items: center;
+  column-gap: 0;
 
-  gap: 14px;
+  row-gap: 0;
 
   padding: 16px 22px;
 
   color: #ffffff;
-
-  background-color: rgba(30, 41, 59, 0.88);
 
   overflow: hidden;
 
@@ -61,8 +59,59 @@
 
 
 .city-row + .city-row {
+  border-top: none;
+}
 
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+.city-row__group--left {
+
+  display: flex;
+
+  align-items: center;
+
+  width: 100%;
+
+  gap: 12px;
+
+}
+
+
+
+.city-row__group--right {
+
+  display: flex;
+
+  align-items: center;
+
+  width: 100%;
+
+  gap: 12px;
+
+}
+
+
+
+.city-row__group--left .city-name {
+
+  margin-left: auto;
+
+  text-align: right;
+
+}
+
+
+
+.city-row__group--right .time-info {
+
+}
+
+
+
+.city-row__group--right .temperature {
+
+  margin-left: auto;
+
+  text-align: right;
 
 }
 
@@ -88,6 +137,10 @@
 
   text-overflow: ellipsis;
 
+  justify-self: end;
+
+  text-align: right;
+
 }
 
 
@@ -103,8 +156,6 @@
   gap: 8px;
 
   font-size: 0.9rem;
-
-  justify-self: center;
 
 }
 
@@ -143,6 +194,8 @@
   font-size: 1.2rem;
 
   font-weight: 700;
+
+  text-align: right;
 
 }
 

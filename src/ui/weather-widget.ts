@@ -422,8 +422,8 @@ export class WeatherWidget {
       overlay.style.left = `-${overlayState.offsetPercent}%`;
       overlay.style.right = "auto";
       overlay.style.width = `${overlayState.widthPercent}%`;
-      overlay.style.top = "0";
-      overlay.style.bottom = "0";
+      overlay.style.top = "-16px";
+      overlay.style.bottom = "-16px";
       const sunIconEl = row.createSpan({ cls: "sun-overlay__icon" });
       sunIconEl.setAttr("aria-hidden", "true");
       sunIconEl.textContent = overlayState.icon.symbol;
@@ -432,18 +432,21 @@ export class WeatherWidget {
       sunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
       sunIconEl.style.color = overlayState.icon.color;
       sunIconEl.style.opacity = `${overlayState.icon.opacity}`;
-      const nameEl = row.createDiv({ cls: "city-name" });
+      const leftGroup = row.createDiv({ cls: "city-row__group city-row__group--left" });
+      const weatherInfo = leftGroup.createDiv({ cls: "weather-info" });
+      weatherInfo.createSpan({ text: weatherIcon });
+      weatherInfo.createSpan({ text: weatherLabel });
+      const nameEl = leftGroup.createDiv({ cls: "city-name" });
       nameEl.textContent = city.label || "-";
-      const timeInfo = row.createDiv({ cls: "time-info" });
+      const rightGroup = row.createDiv({ cls: "city-row__group city-row__group--right" });
+      const timeInfo = rightGroup.createDiv({ cls: "time-info" });
       timeInfo.createSpan({ text: TIME_EMOJIS[timeOfDay] ?? "" });
       timeInfo.createSpan({ text: localTime });
       if (settings.showDateWhenDifferent && localDate !== viewerDate) {
         timeInfo.createSpan({ cls: "date", text: localDate });
       }
-      const weatherInfo = row.createDiv({ cls: "weather-info" });
-      weatherInfo.createSpan({ text: weatherIcon });
-      weatherInfo.createSpan({ text: weatherLabel });
-      row.createDiv({ cls: "temperature", text: temperatureLabel });
+      const temperatureEl = rightGroup.createDiv({ cls: "temperature" });
+      temperatureEl.textContent = temperatureLabel;
     }
   }
 }
