@@ -776,7 +776,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       iconInputEl = text.inputEl;
       text.setValue(sunLayer.icon.symbol);
       text.onChange((value) => {
-                sunLayer.icon.symbol = value.trim() || DEFAULT_SETTINGS.sunLayer.icon.symbol;
+                sunLayer.icon.symbol = value;
         void this.plugin.saveSettings();
         this.refreshPreviewRow();
       });

@@ -368,7 +368,8 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     rgba(0,0,0,${settings.verticalFade.middle}) 80%,
     rgba(0,0,0,${settings.verticalFade.top}) 100%)`;
 
-  const sunSymbol = sunLayer.icon?.symbol?.trim() || DEFAULT_SETTINGS.sunLayer.icon.symbol;
+  const iconSymbol = sunLayer.icon?.symbol;
+  const sunSymbol = typeof iconSymbol === "string" ? iconSymbol : DEFAULT_SETTINGS.sunLayer.icon.symbol;
   const iconScale = clamp(sunLayer.icon?.scale ?? DEFAULT_SETTINGS.sunLayer.icon.scale, 0.2, 4);
 
   const sunProgress = clamp01(centerFraction);

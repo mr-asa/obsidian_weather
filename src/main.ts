@@ -243,7 +243,7 @@ export default class WeatherPlugin extends Plugin {
         ? Math.min(Math.max(overflowValue, 0), 200)
         : overflowFallback;
       const icon = sunLayer.icon ?? { ...fallback.icon };
-      const symbol = typeof icon.symbol === "string" && icon.symbol.trim().length > 0 ? icon.symbol.trim() : fallback.icon.symbol;
+      const symbol = typeof icon.symbol === "string" ? icon.symbol : fallback.icon.symbol;
       const scaleValue = Number(icon.scale);
       const scale = Number.isFinite(scaleValue) ? Math.min(Math.max(scaleValue, 0.1), 5) : fallback.icon.scale;
       sunLayer.icon = {

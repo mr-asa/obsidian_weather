@@ -1,2 +1,1 @@
 # Weather widget for Obsidian
-
