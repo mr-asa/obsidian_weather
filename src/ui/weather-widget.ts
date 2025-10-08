@@ -426,6 +426,7 @@ export class WeatherWidget {
       overlay.style.bottom = "-16px";
       const sunIconEl = row.createSpan({ cls: "sun-overlay__icon" });
       sunIconEl.setAttr("aria-hidden", "true");
+      sunIconEl.classList.toggle("is-monospaced", Boolean(settings.sunLayer.icon.monospaced));
       sunIconEl.textContent = overlayState.icon.symbol;
       sunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
       sunIconEl.style.top = `${overlayState.icon.topPercent}%`;

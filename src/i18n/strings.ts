@@ -89,6 +89,7 @@ export interface LocaleStrings {
       opacityScaleLabel: string;
       iconLabel: string;
       iconScaleLabel: string;
+      iconMonospaceLabel: string;
       transitionsLabel: string;
       transitionsHint: string;
       sunriseLabel: string;
@@ -289,6 +290,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         opacityScaleLabel: "Opacity multiplier",
         iconLabel: "Sun icon",
         iconScaleLabel: "Icon scale",
+        iconMonospaceLabel: "Use monospaced font",
         transitionsLabel: "Color transition windows (minutes)",
         transitionsHint: "Configure when sunrise and sunset colors start blending.",
         sunriseLabel: "Sunrise",
@@ -501,6 +503,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         opacityScaleLabel: "Множитель прозрачности",
         iconLabel: "Значок солнца",
         iconScaleLabel: "Масштаб значка",
+        iconMonospaceLabel: "Моношрифт",
         transitionsLabel: "Окна переходов цвета (мин)",
         transitionsHint: "Настройте, за сколько до и после восхода и заката меняются цвета.",
         sunriseLabel: "Восход",

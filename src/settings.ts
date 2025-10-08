@@ -27,6 +27,7 @@ export interface AlphaGradientSettings {
 export interface SunIconSettings {
     symbol: string;
   scale: number;
+  monospaced: boolean;
 }
 export interface SunTransitionWindow {
     before: number;
@@ -206,7 +207,7 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     gradientInnerRatio: 0.03,
     gradientOpacity: 1,
     gradientOverflowPercent: 50,
-    icon: { symbol: "◉", scale: 1 },
+    icon: { symbol: "◉", scale: 1, monospaced: false },
     transitions: {
             sunrise: { before: 45, after: 45 },
       sunset: { before: 45, after: 45 },

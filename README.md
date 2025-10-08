@@ -1,2 +1,2 @@
-# Погодный виджет для Obsidian
+# Weather widget for Obsidian
 
