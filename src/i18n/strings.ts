@@ -15,6 +15,8 @@ export interface LocaleStrings {
       providerLabel: string;
       providerHint: string;
       providerOptions: Record<string, string>;
+      providerLinkLabel: string;
+      providerLinks: Record<string, string>;
       apiKeyLabel: string;
       apiKeyPlaceholder: string;
       apiKeyDescriptions: Record<string, string>;
@@ -193,6 +195,11 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         providerOptions: {
           "open-meteo": "Open-Meteo",
           "openweathermap": "OpenWeatherMap",
+        },
+        providerLinkLabel: "Open website",
+        providerLinks: {
+          "open-meteo": "https://open-meteo.com/",
+          "openweathermap": "https://home.openweathermap.org/api_keys",
         },
         apiKeyDescriptions: {
           "open-meteo": "Open-Meteo works without an API key.",
@@ -400,6 +407,11 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         providerOptions: {
           "open-meteo": "Open-Meteo",
           "openweathermap": "OpenWeatherMap",
+        },
+        providerLinkLabel: "Открыть сайт",
+        providerLinks: {
+          "open-meteo": "https://open-meteo.com/",
+          "openweathermap": "https://home.openweathermap.org/api_keys",
         },
         apiKeyDescriptions: {
           "open-meteo": "Open-Meteo не требует API-ключ.",

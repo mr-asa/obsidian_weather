@@ -158,66 +158,122 @@ export class WeatherSettingsTab extends PluginSettingTab {
   private renderWidgetUpdatesSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
     section.createEl("h3", { text: strings.settings.widgetUpdates.heading });
-    section.createEl("p", { text: strings.settings.widgetUpdates.description, cls: "weather-settings__hint" });
+    section.createEl("p", { text: strings.settings.widgetUpdates.description, cls: "weather-settings__hint weather-settings__hint--compact" });
     const rowSetting = new Setting(section);
     rowSetting.infoEl.remove();
     rowSetting.settingEl.addClass("weather-settings__widget-update");
     const control = rowSetting.controlEl;
+    const providerLinks = strings.settings.widgetUpdates.providerLinks ?? {};
+    const providerNames = strings.settings.widgetUpdates.providerOptions ?? {};
     const leftColumn = control.createDiv({ cls: "weather-settings__widget-update-left" });
     const providerLabel = leftColumn.createEl("label", { cls: "weather-settings__field" });
-    providerLabel.createSpan({ text: strings.settings.widgetUpdates.providerLabel });
+    const providerHeader = providerLabel.createDiv({ cls: "weather-settings__field-header" });
+    providerHeader.createSpan({ text: strings.settings.widgetUpdates.providerLabel });
+    const providerLinkEl = providerHeader.createEl("a", {
+      cls: "weather-settings__provider-link",
+      text: strings.settings.widgetUpdates.providerLinkLabel,
+      attr: { href: "#", target: "_blank", rel: "noopener noreferrer" },
+    });
     const providerSelect = providerLabel.createEl("select");
     Object.entries(strings.settings.widgetUpdates.providerOptions).forEach(([value, label]) => {
             providerSelect.createEl("option", { value, text: label });
     });
     providerSelect.value = this.plugin.settings.weatherProvider;
-    const providerHint = leftColumn.createDiv({ cls: "weather-settings__hint" });
-    providerHint.textContent = strings.settings.widgetUpdates.providerHint;
+    providerLabel.createSpan({ cls: "weather-settings__hint weather-settings__hint--compact", text: strings.settings.widgetUpdates.providerHint });
     const apiLabel = leftColumn.createEl("label", { cls: "weather-settings__field" });
     apiLabel.createSpan({ text: strings.settings.widgetUpdates.apiKeyLabel });
-    const apiInput = apiLabel.createEl("input", { attr: { type: "text", placeholder: strings.settings.widgetUpdates.apiKeyPlaceholder } });
-    const apiHint = leftColumn.createDiv({ cls: "weather-settings__hint" });
-    const applyProviderState = () => {
-            const provider = this.plugin.settings.weatherProvider as WeatherProviderId;
-      const meta = PROVIDER_META[provider] ?? { requiresKey: false };
-      if (!this.plugin.settings.weatherProviderApiKeys) {
-                this.plugin.settings.weatherProviderApiKeys = { ...DEFAULT_SETTINGS.weatherProviderApiKeys };
+    const apiInput = apiLabel.createEl("input", {
+      attr: { type: "text", placeholder: strings.settings.widgetUpdates.apiKeyPlaceholder },
+    });
+    const apiHint = apiLabel.createEl("span", { cls: "weather-settings__hint weather-settings__hint--compact" });
+
+    const ensureProviderKeyMap = (): Record<string, string> => {
+      if (!this.plugin.settings.weatherProviderApiKeys || typeof this.plugin.settings.weatherProviderApiKeys !== "object") {
+        this.plugin.settings.weatherProviderApiKeys = { ...DEFAULT_SETTINGS.weatherProviderApiKeys };
       }
-      const keys = this.plugin.settings.weatherProviderApiKeys;
-      const storedValue = typeof keys[provider] === "string" ? keys[provider] : "";
+      return this.plugin.settings.weatherProviderApiKeys;
+    };
+
+    let activeProvider = this.plugin.settings.weatherProvider as WeatherProviderId;
+
+    const persistActiveProviderKey = () => {
+      const keys = ensureProviderKeyMap();
+      const sanitized = apiInput.disabled ? "" : apiInput.value.trim();
+      apiInput.value = sanitized;
+      keys[activeProvider] = sanitized;
+      if (activeProvider === (this.plugin.settings.weatherProvider as WeatherProviderId)) {
+        this.plugin.settings.weatherProviderApiKey = sanitized;
+      }
+    };
+
+    const updateProviderLink = (provider: WeatherProviderId) => {
+      const href = providerLinks[provider];
+      if (href && href.trim().length > 0) {
+        providerLinkEl.setAttr("href", href);
+        const providerName = providerNames[provider] ?? provider;
+        providerLinkEl.setAttr("aria-label", `${strings.settings.widgetUpdates.providerLinkLabel} — ${providerName}`);
+        providerLinkEl.removeClass("is-hidden");
+      } else {
+        providerLinkEl.addClass("is-hidden");
+      }
+    };
+
+    const applyProviderState = () => {
+      const provider = this.plugin.settings.weatherProvider as WeatherProviderId;
+      activeProvider = provider;
+      providerSelect.value = provider;
+      updateProviderLink(provider);
+
+      const meta = PROVIDER_META[provider] ?? { requiresKey: false };
+      const keys = ensureProviderKeyMap();
+      let storedValue = typeof keys[provider] === "string" ? keys[provider] : "";
+      storedValue = storedValue.trim();
+      if (!meta.requiresKey && storedValue.length > 0) {
+        storedValue = "";
+        keys[provider] = "";
+      } else {
+        keys[provider] = storedValue;
+      }
+      this.plugin.settings.weatherProviderApiKey = storedValue;
       apiInput.value = storedValue;
       apiInput.disabled = !meta.requiresKey;
       apiInput.required = meta.requiresKey;
+      apiLabel.classList.toggle("is-hidden", !meta.requiresKey);
+
       const descriptions = strings.settings.widgetUpdates.apiKeyDescriptions ?? {};
       const description = descriptions[provider] ?? "";
       apiHint.textContent = description;
-      apiHint.style.display = description.trim().length > 0 ? "" : "none";
+      apiHint.classList.toggle("is-hidden", description.trim().length === 0 || !meta.requiresKey);
     };
-    providerSelect.addEventListener("change", (event) => {
+
+    providerSelect.addEventListener("change", async (event) => {
             const target = event.target as HTMLSelectElement;
-      this.plugin.settings.weatherProvider = target.value as WeatherProviderId;
+      persistActiveProviderKey();
+      const nextProvider = target.value as WeatherProviderId;
+      this.plugin.settings.weatherProvider = nextProvider;
+      ensureProviderKeyMap();
+      const nextValue = this.plugin.settings.weatherProviderApiKeys?.[nextProvider] ?? "";
+      this.plugin.settings.weatherProviderApiKey = nextValue;
       applyProviderState();
-      void this.plugin.saveSettings();
+      await this.plugin.saveSettings();
+      await this.plugin.refreshWeatherData();
     });
-    apiInput.addEventListener("change", () => {
+
+    apiInput.addEventListener("change", async () => {
             if (apiInput.disabled) {
                 return;
       }
-      const provider = this.plugin.settings.weatherProvider as WeatherProviderId;
-      const value = apiInput.value.trim();
-      if (!this.plugin.settings.weatherProviderApiKeys) {
-                this.plugin.settings.weatherProviderApiKeys = { ...DEFAULT_SETTINGS.weatherProviderApiKeys };
-      }
-      this.plugin.settings.weatherProviderApiKeys[provider] = value;
-      this.plugin.settings.weatherProviderApiKey = value;
-      apiInput.value = value;
-      void this.plugin.saveSettings();
+      apiInput.value = apiInput.value.trim();
+      persistActiveProviderKey();
+      await this.plugin.saveSettings();
     });
+
     applyProviderState();
     const rightColumn = control.createDiv({ cls: "weather-settings__widget-update-right" });
     const intervalLabel = rightColumn.createEl("label", { cls: "weather-settings__field" });
     intervalLabel.createSpan({ text: strings.settings.widgetUpdates.intervalLabel });
     const intervalInput = intervalLabel.createEl("input", { attr: { type: "number", min: "1", step: "1" } });
+    intervalLabel.createSpan({ cls: "weather-settings__hint weather-settings__hint--compact", text: strings.settings.widgetUpdates.intervalHint });
     intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
     const commitInterval = () => {
             const parsed = Number(intervalInput.value);
@@ -240,7 +296,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
         intervalInput.blur();
       }
     });
-    rightColumn.createEl("p", { text: strings.settings.widgetUpdates.intervalHint, cls: "weather-settings__hint" });
   }
   private renderLocationsSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
