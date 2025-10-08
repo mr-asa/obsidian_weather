@@ -948,3 +948,64 @@
 
 
 
+.weather-settings__section-header {
+
+  display: grid;
+
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr);
+
+  gap: 12px;
+
+  align-items: center;
+
+  padding: 14px 16px 6px;
+
+}
+
+.weather-settings__section-header-title {
+
+  margin: 0;
+
+  font-size: 1rem;
+
+  font-weight: 600;
+
+}
+
+.weather-settings__section-header-description {
+
+  margin: 0;
+
+  font-size: 0.9rem;
+
+  color: var(--text-muted);
+
+}
+
+.weather-settings__section-header-description.is-empty {
+
+  display: none;
+
+}
+
+.weather-settings__section-divider {
+
+  height: 1px;
+
+  margin: 0 16px 12px;
+
+  background: var(--background-modifier-border);
+
+}
+
+@media (max-width: 720px) {
+
+  .weather-settings__section-header {
+
+    grid-template-columns: 1fr;
+
+    gap: 6px;
+
+  }
+
+}

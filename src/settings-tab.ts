@@ -137,28 +137,47 @@ export class WeatherSettingsTab extends PluginSettingTab {
     });
     this.renderOtherSection(containerEl, strings);
   }
+  private appendSectionHeader(
+    container: HTMLElement,
+    title: string,
+    description: string | null | undefined,
+    options: { divider?: boolean } = {},
+  ): void {
+        const header = container.createDiv({ cls: "weather-settings__section-header" });
+    header.createEl("h3", { text: title, cls: "weather-settings__section-header-title" });
+    const desc = (description ?? "").trim();
+    const descClasses = ["weather-settings__section-header-description"];
+    if (desc.length === 0) {
+      descClasses.push("is-empty");
+    }
+    header.createEl("p", {
+      text: desc,
+      cls: descClasses.join(" "),
+    });
+    if (options.divider) {
+            container.createDiv({ cls: "weather-settings__section-divider" });
+    }
+  }
   private renderLocalizationSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    section.createEl("h3", { text: strings.settings.localization.heading });
-    new Setting(section)
-    .setName(strings.settings.localization.languageLabel)
-      .setDesc(strings.settings.localization.languageDescription)
-      .addDropdown((dropdown) => {
-                (Object.keys(strings.languageNames) as LocaleCode[]).forEach((code) => {
-                    dropdown.addOption(code, strings.languageNames[code]);
-        });
-        dropdown.setValue(this.plugin.settings.language);
-        dropdown.onChange(async (value) => {
-                    this.plugin.settings.language = value as LocaleCode;
-          await this.plugin.saveSettings();
-          this.display();
-        });
+    this.appendSectionHeader(section, strings.settings.localization.heading, strings.settings.localization.languageDescription);
+    const localizationSetting = new Setting(section);
+    localizationSetting.infoEl.remove();
+    localizationSetting.addDropdown((dropdown) => {
+            (Object.keys(strings.languageNames) as LocaleCode[]).forEach((code) => {
+                dropdown.addOption(code, strings.languageNames[code]);
       });
-    }
+      dropdown.setValue(this.plugin.settings.language);
+      dropdown.onChange(async (value) => {
+                this.plugin.settings.language = value as LocaleCode;
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    });
+  }
   private renderWidgetUpdatesSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    section.createEl("h3", { text: strings.settings.widgetUpdates.heading });
-    section.createEl("p", { text: strings.settings.widgetUpdates.description, cls: "weather-settings__hint weather-settings__hint--compact" });
+    this.appendSectionHeader(section, strings.settings.widgetUpdates.heading, strings.settings.widgetUpdates.description);
     const rowSetting = new Setting(section);
     rowSetting.infoEl.remove();
     rowSetting.settingEl.addClass("weather-settings__widget-update");
@@ -324,8 +343,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderLocationsSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    section.createEl("h3", { text: strings.settings.locations.heading });
-    section.createEl("p", { text: strings.settings.locations.description, cls: "weather-settings__hint" });
+    this.appendSectionHeader(section, strings.settings.locations.heading, strings.settings.locations.description, { divider: true });
     const table = section.createEl("table", { cls: "weather-settings__table" });
     const headRow = table.createTHead().insertRow();
     [
@@ -891,8 +909,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderGradientPreviewSection(parent: HTMLElement, strings: LocaleStrings): void {
         const previewSection = parent.createDiv({ cls: "weather-settings__preview-section" });
-    previewSection.createEl("h4", { text: strings.settings.preview.heading });
-    previewSection.createEl("p", { text: strings.settings.preview.description, cls: "weather-settings__hint" });
+    this.appendSectionHeader(previewSection, strings.settings.preview.heading, strings.settings.preview.description, { divider: true });
     const widgetWrapper = previewSection.createDiv({ cls: "weather-settings__preview-widget" });
     const row = widgetWrapper.createDiv({ cls: "city-row weather-widget__row weather-settings__preview-row" });
     row.style.backgroundSize = "100% 100%, 100% 100%, 100% 100%";
@@ -1317,8 +1334,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderOtherSection(parent: HTMLElement, strings: LocaleStrings): void {
         const section = parent.createDiv({ cls: "weather-settings__section" });
-    section.createEl("h3", { text: strings.settings.other.heading });
-    section.createEl("p", { text: strings.settings.other.description, cls: "weather-settings__hint" });
+    this.appendSectionHeader(section, strings.settings.other.heading, strings.settings.other.description);
     this.addNumberSetting(
       section,
       strings.settings.gradients.edgeWidthLabel,
