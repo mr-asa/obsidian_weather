@@ -206,7 +206,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
           "openweathermap": "OpenWeatherMap requires a personal API key from your account.",
         },
         apiKeyLabel: "API key",
-        apiKeyPlaceholder: "Optional token",
+        apiKeyPlaceholder: "Insert token",
         intervalLabel: "Refresh (min)",
         intervalHint: "Refresh cached data after this many minutes.",
       },
@@ -234,7 +234,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         weatherLabel: "Weather",
         weatherHint: "Uses the palette color and icon for the selected condition.",
         sampleCity: "Sample City",
-        sampleDate: "24 Sep",
+        sampleDate: "24.09",
       },
       locations: {
         heading: "Locations",
@@ -251,7 +251,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       },
       timePalette: {
         heading: "Time-of-day colors",
-        description: "Tune base and highlight colors used for sunrise, day, evening, and night.",
+        description: "Tune base color used for sunrise, day, evening, and night.",
       },
       weatherLayer: {
         heading: "Weather",
@@ -293,10 +293,10 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         transitionsHint: "Configure when sunrise and sunset colors start blending.",
         sunriseLabel: "Sunrise",
         sunsetLabel: "Sunset",
-        sunriseBeforeLabel: "Before sunrise",
-        sunriseAfterLabel: "After sunrise",
-        sunsetBeforeLabel: "Before sunset",
-        sunsetAfterLabel: "After sunset",
+        sunriseBeforeLabel: "Before",
+        sunriseAfterLabel: "After",
+        sunsetBeforeLabel: "Before",
+        sunsetAfterLabel: "After",
       },
       gradients: {
         heading: "Layer gradients",
@@ -418,7 +418,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
           "openweathermap": "Для OpenWeatherMap нужен личный API-ключ из кабинета.",
         },
         apiKeyLabel: "API ключ",
-        apiKeyPlaceholder: "Необязательный токен",
+        apiKeyPlaceholder: "Введите токен",
         intervalLabel: "Обновление (мин)",
         intervalHint: "После указанного времени данные будут запрошены повторно.",
       },
@@ -446,7 +446,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         weatherLabel: "Погода",
         weatherHint: "Используется цвет и иконка выбранного состояния.",
         sampleCity: "Город",
-        sampleDate: "24 сен",
+        sampleDate: "24.09",
       },
       locations: {
         heading: "Локации",
@@ -463,7 +463,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       },
       timePalette: {
         heading: "Цвета по времени суток",
-        description: "Настройте основную и акцентную палитру для рассвета, дня, вечера и ночи.",
+        description: "Настройте основной цвет для рассвета, дня, вечера и ночи.",
       },
       weatherLayer: {
         heading: "Погода",
@@ -505,10 +505,10 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         transitionsHint: "Настройте, за сколько до и после восхода и заката меняются цвета.",
         sunriseLabel: "Восход",
         sunsetLabel: "Закат",
-        sunriseBeforeLabel: "До восхода",
-        sunriseAfterLabel: "После восхода",
-        sunsetBeforeLabel: "До заката",
-        sunsetAfterLabel: "После заката",
+        sunriseBeforeLabel: "До",
+        sunriseAfterLabel: "После",
+        sunsetBeforeLabel: "До",
+        sunsetAfterLabel: "После",
       },
       gradients: {
         heading: "Градиенты слоёв",

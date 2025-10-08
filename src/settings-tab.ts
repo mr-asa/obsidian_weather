@@ -543,28 +543,32 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.addAlphaProfileSetting(parent, strings.settings.weatherLayer.alphaProfileLabel, weatherAlpha.profile, strings, (value) => {
             weatherAlpha.profile = value;
     });
-    this.addNumberSetting(parent, strings.settings.weatherLayer.innerWidthLabel, weatherAlpha.innerOpacityRatio, (val) => {
+    const weatherControls = parent.createDiv({ cls: "weather-settings__triple-grid" });
+    const weatherInnerSetting = this.addNumberSetting(weatherControls, strings.settings.weatherLayer.innerWidthLabel, weatherAlpha.innerOpacityRatio, (val) => {
             const normalized = Math.max(0, Math.min(1, val));
       weatherAlpha.innerOpacityRatio = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { this.refreshGradientPreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.weatherLayer.opacityScaleLabel, weatherAlpha.opacityScale, (val) => {
+    weatherInnerSetting.settingEl.addClass("weather-settings__grid-item");
+    const weatherOpacitySetting = this.addNumberSetting(weatherControls, strings.settings.weatherLayer.opacityScaleLabel, weatherAlpha.opacityScale, (val) => {
             const normalized = Math.max(0, Math.min(1, val));
       weatherAlpha.opacityScale = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { this.refreshGradientPreview(); this.refreshPreviewRow(); } });
-    new Setting(parent)
+    weatherOpacitySetting.settingEl.addClass("weather-settings__grid-item");
+    const weatherToggle = new Setting(weatherControls)
     .setName(strings.settings.weatherLayer.disableLeftLabel)
       .addToggle((toggle) => {
-                toggle.setValue(!weatherAlpha.enableLeft);
-        toggle.onChange((value) => {
-                    weatherAlpha.enableLeft = !value;
-          void this.plugin.saveSettings();
-          this.refreshGradientPreview();
-          this.refreshPreviewRow();
-        });
-      });
-    }
+            toggle.setValue(!weatherAlpha.enableLeft);
+    toggle.onChange((value) => {
+            weatherAlpha.enableLeft = !value;
+      void this.plugin.saveSettings();
+      this.refreshGradientPreview();
+      this.refreshPreviewRow();
+    });
+    });
+    weatherToggle.settingEl.addClass("weather-settings__grid-item");
+  }
   private renderTemperatureGradientContent(parent: HTMLElement, strings: LocaleStrings): void {
         const table = parent.createEl("table", { cls: "weather-settings__table" });
     const head = table.createTHead().insertRow();
@@ -587,32 +591,36 @@ export class WeatherSettingsTab extends PluginSettingTab {
             this.refreshTemperatureTable();
           });
         });
-      const temperatureAlpha = this.plugin.settings.temperatureAlpha;
+    const temperatureAlpha = this.plugin.settings.temperatureAlpha;
     this.addAlphaProfileSetting(parent, strings.settings.temperatureLayer.alphaProfileLabel, temperatureAlpha.profile, strings, (value) => {
             temperatureAlpha.profile = value;
     });
-    this.addNumberSetting(parent, strings.settings.temperatureLayer.innerWidthLabel, temperatureAlpha.innerOpacityRatio, (val) => {
+    const temperatureControls = parent.createDiv({ cls: "weather-settings__triple-grid" });
+    const temperatureInnerSetting = this.addNumberSetting(temperatureControls, strings.settings.temperatureLayer.innerWidthLabel, temperatureAlpha.innerOpacityRatio, (val) => {
             const normalized = Math.max(0, Math.min(1, val));
       temperatureAlpha.innerOpacityRatio = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { this.refreshGradientPreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.temperatureLayer.opacityScaleLabel, temperatureAlpha.opacityScale, (val) => {
+    temperatureInnerSetting.settingEl.addClass("weather-settings__grid-item");
+    const temperatureOpacitySetting = this.addNumberSetting(temperatureControls, strings.settings.temperatureLayer.opacityScaleLabel, temperatureAlpha.opacityScale, (val) => {
             const normalized = Math.max(0, Math.min(1, val));
       temperatureAlpha.opacityScale = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { this.refreshGradientPreview(); this.refreshPreviewRow(); } });
-    new Setting(parent)
+    temperatureOpacitySetting.settingEl.addClass("weather-settings__grid-item");
+    const temperatureToggle = new Setting(temperatureControls)
     .setName(strings.settings.temperatureLayer.disableRightLabel)
       .addToggle((toggle) => {
-                toggle.setValue(!temperatureAlpha.enableRight);
-        toggle.onChange((value) => {
-                    temperatureAlpha.enableRight = !value;
-          void this.plugin.saveSettings();
-          this.refreshGradientPreview();
-          this.refreshPreviewRow();
-        });
-      });
-    }
+            toggle.setValue(!temperatureAlpha.enableRight);
+    toggle.onChange((value) => {
+            temperatureAlpha.enableRight = !value;
+      void this.plugin.saveSettings();
+      this.refreshGradientPreview();
+      this.refreshPreviewRow();
+    });
+    });
+    temperatureToggle.settingEl.addClass("weather-settings__grid-item");
+  }
   private renderTemperatureTableRows(strings: LocaleStrings): void {
         const body = this.temperatureTableBody;
     if (!body) {
@@ -734,44 +742,55 @@ export class WeatherSettingsTab extends PluginSettingTab {
               void this.plugin.saveSettings();
               this.refreshPreviewRow();
             }));
-        });
+    });
     this.addAlphaProfileSetting(parent, strings.settings.sunLayer.alphaProfileLabel, sunLayer.alphaProfile, strings, (value) => {
             sunLayer.alphaProfile = value;
     });
-    this.addNumberSetting(parent, strings.settings.sunLayer.gradientWidthLabel, sunLayer.gradientWidthPercent, (value) => {
+    const sunControlGrid = parent.createDiv({ cls: "weather-settings__sun-control-grid" });
+    const gradientWidthSetting = this.addNumberSetting(sunControlGrid, strings.settings.sunLayer.gradientWidthLabel, sunLayer.gradientWidthPercent, (value) => {
             const normalized = Math.max(0, Math.min(100, value));
       sunLayer.gradientWidthPercent = normalized;
       return normalized;
     }, { min: 0, max: 100, step: "1", onChange: () => { this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.sunLayer.innerWidthLabel, sunLayer.gradientInnerRatio, (value) => {
+    gradientWidthSetting.settingEl.addClass("weather-settings__grid-item");
+    gradientWidthSetting.infoEl.addClass("weather-settings__grid-label");
+    gradientWidthSetting.settingEl.createDiv({ cls: "weather-settings__grid-divider" });
+    const opaquePortionSetting = this.addNumberSetting(sunControlGrid, strings.settings.sunLayer.innerWidthLabel, sunLayer.gradientInnerRatio, (value) => {
             const normalized = Math.max(0, Math.min(1, value));
       sunLayer.gradientInnerRatio = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.sunLayer.opacityScaleLabel, sunLayer.gradientOpacity, (value) => {
+    opaquePortionSetting.settingEl.addClass("weather-settings__grid-item");
+    opaquePortionSetting.infoEl.addClass("weather-settings__grid-label");
+    const opacityMultiplierSetting = this.addNumberSetting(sunControlGrid, strings.settings.sunLayer.opacityScaleLabel, sunLayer.gradientOpacity, (value) => {
             const normalized = Math.max(0, Math.min(1, value));
       sunLayer.gradientOpacity = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { this.refreshPreviewRow(); } });
-    new Setting(parent)
-    .setName(strings.settings.sunLayer.iconLabel)
-      .addText((text) => {
-                text.inputEl.maxLength = 4;
-        text.inputEl.classList.add("weather-settings__icon-input");
-        text.setValue(sunLayer.icon.symbol);
-        text.onChange((value) => {
-                    sunLayer.icon.symbol = value.trim() || DEFAULT_SETTINGS.sunLayer.icon.symbol;
-          void this.plugin.saveSettings();
-          this.refreshPreviewRow();
-        });
+    opacityMultiplierSetting.settingEl.addClass("weather-settings__grid-item");
+    opacityMultiplierSetting.infoEl.addClass("weather-settings__grid-label");
+    const iconSetting = new Setting(sunControlGrid)
+    .setName(strings.settings.sunLayer.iconLabel);
+    iconSetting.settingEl.addClass("weather-settings__grid-item");
+    iconSetting.infoEl.addClass("weather-settings__grid-label");
+    iconSetting.addText((text) => {
+            text.inputEl.maxLength = 4;
+      text.inputEl.classList.add("weather-settings__icon-input");
+      text.setValue(sunLayer.icon.symbol);
+      text.onChange((value) => {
+                sunLayer.icon.symbol = value.trim() || DEFAULT_SETTINGS.sunLayer.icon.symbol;
+        void this.plugin.saveSettings();
+        this.refreshPreviewRow();
       });
-      this.addNumberSetting(parent, strings.settings.sunLayer.iconScaleLabel, sunLayer.icon.scale, (value) => {
+    });
+    const iconScaleSetting = this.addNumberSetting(sunControlGrid, strings.settings.sunLayer.iconScaleLabel, sunLayer.icon.scale, (value) => {
             const normalized = Math.max(0.1, Math.min(5, value));
       sunLayer.icon.scale = normalized;
       return normalized;
     }, { min: 0.1, max: 5, step: "0.1", onChange: () => { this.refreshPreviewRow(); } });
-    parent.createDiv({ cls: "weather-settings__hint", text: strings.settings.sunLayer.transitionsLabel });
-    parent.createDiv({ cls: "weather-settings__hint", text: strings.settings.sunLayer.transitionsHint });
+    iconScaleSetting.settingEl.addClass("weather-settings__grid-item");
+    iconScaleSetting.infoEl.addClass("weather-settings__grid-label");
+    this.appendSectionHeader(parent, strings.settings.sunLayer.transitionsLabel, strings.settings.sunLayer.transitionsHint, { divider: true });
     const transitionDefaults = DEFAULT_SETTINGS.sunLayer.transitions;
     const ensureTransitionPhase = (phase: "sunrise" | "sunset") => {
       const transitions = this.plugin.settings.sunLayer.transitions ?? (
@@ -789,22 +808,32 @@ export class WeatherSettingsTab extends PluginSettingTab {
       const transitions = this.plugin.settings.sunLayer.transitions;
       return transitions?.[phase]?.[field] ?? transitionDefaults[phase][field];
     };
-    const createTransitionSetting = (
+    const transitionsRow = parent.createDiv({ cls: "weather-settings__sun-transition-columns" });
+    const createTransitionColumn = (
+      parentColumn: HTMLElement,
       phase: "sunrise" | "sunset",
-      label: string,
+      phaseLabel: string,
       beforeLabel: string,
       afterLabel: string,
     ) => {
-      const setting = new Setting(parent).setName(label);
-      const row = setting.controlEl.createDiv({ cls: "weather-settings__sun-transition-row" });
-      const createField = (fieldKey: "before" | "after", fieldLabel: string) => {
-        const field = row.createDiv({ cls: "weather-settings__sun-transition-field" });
-        field.createSpan({ cls: "weather-settings__sun-transition-field-label", text: fieldLabel });
-        const input = field.createEl("input", {
-          cls: "weather-settings__sun-transition-input",
-          attr: { type: "number", min: "0", step: "1" },
-        });
-        input.value = String(getTransitionValue(phase, fieldKey));
+      const column = parentColumn.createDiv({ cls: "weather-settings__sun-transition-column" });
+      const inline = column.createDiv({ cls: "weather-settings__sun-transition-inline" });
+      const beforeSpan = inline.createSpan({ cls: "weather-settings__sun-transition-label", text: beforeLabel });
+      beforeSpan.setAttr("aria-hidden", "true");
+      const beforeInput = inline.createEl("input", {
+        cls: "weather-settings__sun-transition-input",
+        attr: { type: "number", min: "0", step: "1" },
+      });
+      beforeInput.value = String(getTransitionValue(phase, "before"));
+      inline.createSpan({ cls: "weather-settings__sun-transition-phase", text: phaseLabel });
+      const afterInput = inline.createEl("input", {
+        cls: "weather-settings__sun-transition-input",
+        attr: { type: "number", min: "0", step: "1" },
+      });
+      afterInput.value = String(getTransitionValue(phase, "after"));
+      const afterSpan = inline.createSpan({ cls: "weather-settings__sun-transition-label", text: afterLabel });
+      afterSpan.setAttr("aria-hidden", "true");
+      const bindInput = (fieldKey: "before" | "after", input: HTMLInputElement) => {
         const commit = () => {
           const parsed = Number(input.value);
           if (!Number.isFinite(parsed) || parsed < 0) {
@@ -832,16 +861,19 @@ export class WeatherSettingsTab extends PluginSettingTab {
           }
         });
       };
-      createField("before", beforeLabel);
-      createField("after", afterLabel);
+      bindInput("before", beforeInput);
+      bindInput("after", afterInput);
     };
-    createTransitionSetting(
+    createTransitionColumn(
+      transitionsRow,
       "sunrise",
       strings.settings.sunLayer.sunriseLabel,
       strings.settings.sunLayer.sunriseBeforeLabel,
       strings.settings.sunLayer.sunriseAfterLabel,
     );
-    createTransitionSetting(
+    transitionsRow.createDiv({ cls: "weather-settings__divider-vertical" });
+    createTransitionColumn(
+      transitionsRow,
       "sunset",
       strings.settings.sunLayer.sunsetLabel,
       strings.settings.sunLayer.sunsetBeforeLabel,
@@ -1415,7 +1447,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     value: number,
     apply: (next: number) => number,
     options: { min?: number; max?: number; step?: string; desc?: string; onChange?: () => void } = {},
-  ): void {
+  ): Setting {
         const setting = new Setting(parent).setName(name);
     if (options.desc) {
             setting.setDesc(options.desc);
@@ -1436,6 +1468,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         }
       });
     });
+    return setting;
   }
 }
 
