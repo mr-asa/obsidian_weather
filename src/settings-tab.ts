@@ -163,24 +163,35 @@ export class WeatherSettingsTab extends PluginSettingTab {
     rowSetting.infoEl.remove();
     rowSetting.settingEl.addClass("weather-settings__widget-update");
     const control = rowSetting.controlEl;
+    control.addClass("weather-settings__widget-update-control");
     const providerLinks = strings.settings.widgetUpdates.providerLinks ?? {};
     const providerNames = strings.settings.widgetUpdates.providerOptions ?? {};
-    const leftColumn = control.createDiv({ cls: "weather-settings__widget-update-left" });
-    const providerLabel = leftColumn.createEl("label", { cls: "weather-settings__field" });
+    const providerColumn = control.createDiv({
+      cls: "weather-settings__widget-update-column weather-settings__widget-update-column--provider",
+    });
+    const providerLabel = providerColumn.createEl("label", { cls: "weather-settings__field" });
     const providerHeader = providerLabel.createDiv({ cls: "weather-settings__field-header" });
-    providerHeader.createSpan({ text: strings.settings.widgetUpdates.providerLabel });
     const providerLinkEl = providerHeader.createEl("a", {
       cls: "weather-settings__provider-link",
-      text: strings.settings.widgetUpdates.providerLinkLabel,
+      text: strings.settings.widgetUpdates.providerLabel,
       attr: { href: "#", target: "_blank", rel: "noopener noreferrer" },
     });
-    const providerSelect = providerLabel.createEl("select");
+    providerLinkEl.addEventListener("click", (event) => {
+      if (providerLinkEl.hasClass("is-disabled")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+    const providerSelect = providerLabel.createEl("select", { cls: "weather-settings__provider-select" });
+    providerSelect.setAttr("aria-label", strings.settings.widgetUpdates.providerLabel);
     Object.entries(strings.settings.widgetUpdates.providerOptions).forEach(([value, label]) => {
             providerSelect.createEl("option", { value, text: label });
     });
     providerSelect.value = this.plugin.settings.weatherProvider;
-    providerLabel.createSpan({ cls: "weather-settings__hint weather-settings__hint--compact", text: strings.settings.widgetUpdates.providerHint });
-    const apiLabel = leftColumn.createEl("label", { cls: "weather-settings__field" });
+    const apiColumn = control.createDiv({
+      cls: "weather-settings__widget-update-column weather-settings__widget-update-column--api",
+    });
+    const apiLabel = apiColumn.createEl("label", { cls: "weather-settings__field" });
     apiLabel.createSpan({ text: strings.settings.widgetUpdates.apiKeyLabel });
     const apiInput = apiLabel.createEl("input", {
       attr: { type: "text", placeholder: strings.settings.widgetUpdates.apiKeyPlaceholder },
@@ -208,13 +219,22 @@ export class WeatherSettingsTab extends PluginSettingTab {
 
     const updateProviderLink = (provider: WeatherProviderId) => {
       const href = providerLinks[provider];
+      const providerName = providerNames[provider] ?? provider;
+      providerLinkEl.setAttr("aria-label", `${strings.settings.widgetUpdates.providerLabel} - ${providerName}`);
       if (href && href.trim().length > 0) {
         providerLinkEl.setAttr("href", href);
-        const providerName = providerNames[provider] ?? provider;
-        providerLinkEl.setAttr("aria-label", `${strings.settings.widgetUpdates.providerLinkLabel} — ${providerName}`);
-        providerLinkEl.removeClass("is-hidden");
+        providerLinkEl.setAttr("title", providerName);
+        providerLinkEl.setAttr("target", "_blank");
+        providerLinkEl.setAttr("rel", "noopener noreferrer");
+        providerLinkEl.removeClass("is-disabled");
+        providerLinkEl.removeAttribute("tabindex");
       } else {
-        providerLinkEl.addClass("is-hidden");
+        providerLinkEl.setAttr("href", "#");
+        providerLinkEl.removeAttribute("title");
+        providerLinkEl.removeAttribute("target");
+        providerLinkEl.removeAttribute("rel");
+        providerLinkEl.addClass("is-disabled");
+        providerLinkEl.setAttr("tabindex", "-1");
       }
     };
 
@@ -238,7 +258,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       apiInput.value = storedValue;
       apiInput.disabled = !meta.requiresKey;
       apiInput.required = meta.requiresKey;
-      apiLabel.classList.toggle("is-hidden", !meta.requiresKey);
+      apiColumn.classList.toggle("is-placeholder", !meta.requiresKey);
 
       const descriptions = strings.settings.widgetUpdates.apiKeyDescriptions ?? {};
       const description = descriptions[provider] ?? "";
@@ -269,10 +289,15 @@ export class WeatherSettingsTab extends PluginSettingTab {
     });
 
     applyProviderState();
-    const rightColumn = control.createDiv({ cls: "weather-settings__widget-update-right" });
-    const intervalLabel = rightColumn.createEl("label", { cls: "weather-settings__field" });
+    const intervalColumn = control.createDiv({
+      cls: "weather-settings__widget-update-column weather-settings__widget-update-column--interval",
+    });
+    const intervalLabel = intervalColumn.createEl("label", { cls: "weather-settings__field" });
     intervalLabel.createSpan({ text: strings.settings.widgetUpdates.intervalLabel });
-    const intervalInput = intervalLabel.createEl("input", { attr: { type: "number", min: "1", step: "1" } });
+    const intervalInput = intervalLabel.createEl("input", {
+      cls: "weather-settings__interval-input",
+      attr: { type: "number", min: "1", step: "1" },
+    });
     intervalLabel.createSpan({ cls: "weather-settings__hint weather-settings__hint--compact", text: strings.settings.widgetUpdates.intervalHint });
     intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
     const commitInterval = () => {

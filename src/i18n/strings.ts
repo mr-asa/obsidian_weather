@@ -207,7 +207,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         },
         apiKeyLabel: "API key",
         apiKeyPlaceholder: "Optional token",
-        intervalLabel: "Cache refresh (minutes)",
+        intervalLabel: "Refresh (min)",
         intervalHint: "Refresh cached data after this many minutes.",
       },
       alphaProfiles: {
@@ -419,7 +419,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         },
         apiKeyLabel: "API ключ",
         apiKeyPlaceholder: "Необязательный токен",
-        intervalLabel: "Обновление кеша (мин)",
+        intervalLabel: "Обновление (мин)",
         intervalHint: "После указанного времени данные будут запрошены повторно.",
       },
       alphaProfiles: {
