@@ -704,18 +704,19 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderSunLayerContent(parent: HTMLElement, strings: LocaleStrings): void {
         const sunLayer = this.plugin.settings.sunLayer;
-    const colorRow = parent.createDiv({ cls: "weather-settings__sun-colors" });
+    const colorGrid = parent.createDiv({ cls: "weather-settings__color-grid weather-settings__color-grid--sun" });
     (["night", "sunrise", "day", "sunset"] as const).forEach((key) => {
-            const block = colorRow.createDiv({ cls: "weather-settings__sun-color" });
-      block.createSpan({ cls: "weather-settings__sun-color-label", text: strings.settings.sunLayer.colors[key] });
-      const input = block.createEl("input", { cls: "weather-settings__sun-color-input", attr: { type: "color" } });
-      input.value = sunLayer.colors[key];
-      input.addEventListener("input", () => {
-                sunLayer.colors[key] = input.value;
-        void this.plugin.saveSettings();
-        this.refreshPreviewRow();
-      });
-    });
+            new Setting(colorGrid)
+      .setName(strings.settings.sunLayer.colors[key])
+        .addColorPicker((picker) =>
+          picker
+          .setValue(sunLayer.colors[key])
+            .onChange((value) => {
+                        sunLayer.colors[key] = value;
+              void this.plugin.saveSettings();
+              this.refreshPreviewRow();
+            }));
+        });
     this.addAlphaProfileSetting(parent, strings.settings.sunLayer.alphaProfileLabel, sunLayer.alphaProfile, strings, (value) => {
             sunLayer.alphaProfile = value;
     });
@@ -879,11 +880,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
     renderer: (body: HTMLDivElement) => void,
   ): void {
         const detailsEl = containerEl.createEl("details", { cls: "weather-settings__section weather-settings__section--collapsible" });
-    detailsEl.createEl("summary", { text: summary });
-    const body = detailsEl.createDiv({ cls: "weather-settings__section-body" });
+    const summaryEl = detailsEl.createEl("summary", { cls: "weather-settings__section-summary" });
+    const summaryContent = summaryEl.createDiv({ cls: "weather-settings__section-summary-content" });
+    summaryContent.createSpan({ cls: "weather-settings__section-summary-title", text: summary });
     if (description && description.trim().length > 0) {
-            body.createEl("p", { text: description, cls: "weather-settings__hint" });
+            summaryContent.createSpan({ cls: "weather-settings__section-summary-description", text: description });
     }
+    const body = detailsEl.createDiv({ cls: "weather-settings__section-body" });
     renderer(body);
   }
   private renderGradientPreviewSection(parent: HTMLElement, strings: LocaleStrings): void {
