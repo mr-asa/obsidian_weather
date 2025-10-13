@@ -28,13 +28,32 @@ export default class WeatherPlugin extends Plugin {
   private weatherData = new Map<string, WeatherSnapshot>();
   private widgetInstances = new Set<WeatherWidget>();
   private refreshIntervalId: number | null = null;
+  private widgetMinuteIntervalId: number | null = null;
   private widgetMinuteTimeoutId: number | null = null;
   private lastWidgetMinute: number | null = null;
   private providerSignature: string | null = null;
+  private viewRegistered = false;
   async onload(): Promise<void> {
     this.weatherService = new WeatherService();
     await this.loadSettings();
-    this.registerView(WEATHER_WIDGET_VIEW_TYPE, (leaf) => new WeatherWidgetView(leaf, this));
+    this.unregisterExistingViewType();
+    if (!this.viewRegistered) {
+      try {
+        this.registerView(WEATHER_WIDGET_VIEW_TYPE, (leaf) => new WeatherWidgetView(leaf, this));
+        this.viewRegistered = true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("Attempting to register an existing view type")) {
+          console.warn(
+            "WeatherPlugin: view type already registered – continuing without re-registering.",
+            error,
+          );
+          this.viewRegistered = true;
+        } else {
+          throw error;
+        }
+      }
+    }
     this.canvasBridge = new CanvasBridge(this);
     registerCommands(this, this.canvasBridge);
     registerMarkdownWeatherWidget(this);
@@ -47,16 +66,23 @@ export default class WeatherPlugin extends Plugin {
     this.app.workspace.detachLeavesOfType(WEATHER_WIDGET_VIEW_TYPE);
     this.canvasBridge?.unregister();
     if (this.refreshIntervalId !== null) {
-            window.clearInterval(this.refreshIntervalId);
+      window.clearInterval(this.refreshIntervalId);
       this.refreshIntervalId = null;
     }
+    if (this.widgetMinuteIntervalId !== null) {
+      window.clearInterval(this.widgetMinuteIntervalId);
+      this.widgetMinuteIntervalId = null;
+    }
     if (this.widgetMinuteTimeoutId !== null) {
-            window.clearTimeout(this.widgetMinuteTimeoutId);
+      window.clearTimeout(this.widgetMinuteTimeoutId);
       this.widgetMinuteTimeoutId = null;
     }
     this.lastWidgetMinute = null;
     this.weatherService?.clear();
     this.weatherData.clear();
+    this.widgetInstances.clear();
+    this.unregisterExistingViewType();
+    this.viewRegistered = false;
   }
   async activateView(): Promise<void> {
         const { workspace } = this.app;
@@ -77,12 +103,43 @@ export default class WeatherPlugin extends Plugin {
         this.widgetInstances.delete(widget);
   }
   requestWidgetRefresh(): void {
-        for (const widget of Array.from(this.widgetInstances)) {
-            if (widget.isMounted()) {
-                widget.update();
-      } else {
-                this.widgetInstances.delete(widget);
+    for (const widget of Array.from(this.widgetInstances)) {
+      if (!widget.isMounted()) {
+        this.widgetInstances.delete(widget);
+        continue;
       }
+      try {
+        widget.update();
+      } catch (error) {
+        console.error("WeatherPlugin: failed to update widget", error);
+      }
+    }
+  }
+  private unregisterExistingViewType(): void {
+    const workspace = this.app.workspace as unknown as {
+      viewRegistry?: {
+        unregisterView?: (type: string) => void;
+        viewByType?: Record<string, unknown>;
+        typeList?: string[];
+      };
+    };
+    const registry = workspace?.viewRegistry;
+    if (!registry) {
+      return;
+    }
+    if (typeof registry.unregisterView === "function") {
+      try {
+        registry.unregisterView(WEATHER_WIDGET_VIEW_TYPE);
+      } catch (error) {
+        console.warn("WeatherPlugin: failed to unregister view via API", error);
+      }
+      return;
+    }
+    if (registry.viewByType && WEATHER_WIDGET_VIEW_TYPE in registry.viewByType) {
+      delete registry.viewByType[WEATHER_WIDGET_VIEW_TYPE];
+    }
+    if (Array.isArray(registry.typeList)) {
+      registry.typeList = registry.typeList.filter((type) => type !== WEATHER_WIDGET_VIEW_TYPE);
     }
   }
   onSettingsTabClosed(): void {
@@ -199,6 +256,19 @@ export default class WeatherPlugin extends Plugin {
       ? value.trim()
         : defaults.timeBaseColors[key];
       });
+    const timeTransitionDefaults = defaults.timeColorTransitions;
+    const normalizeTransition = (
+      source: { before?: number; after?: number } | undefined,
+      fallback: { before: number; after: number },
+    ) => ({
+      before: Number.isFinite(source?.before) ? Math.max(0, Math.round(Number(source?.before))) : fallback.before,
+      after: Number.isFinite(source?.after) ? Math.max(0, Math.round(Number(source?.after))) : fallback.after,
+    });
+    const existingTimeTransitions = this.settings.timeColorTransitions;
+    this.settings.timeColorTransitions = {
+      sunrise: normalizeTransition(existingTimeTransitions?.sunrise, timeTransitionDefaults.sunrise),
+      sunset: normalizeTransition(existingTimeTransitions?.sunset, timeTransitionDefaults.sunset),
+    };
     const edgePortion = Number(this.settings.gradientEdgePortion);
     const defaultEdgePortion = defaults.gradientEdgePortion ?? 0.25;
     this.settings.gradientEdgePortion = Number.isFinite(edgePortion)
@@ -309,7 +379,7 @@ export default class WeatherPlugin extends Plugin {
     if (!Array.isArray(this.settings.temperatureGradient)) {
             this.settings.temperatureGradient = [...defaults.temperatureGradient];
     } else {
-            this.settings.temperatureGradient = this.settings.temperatureGradient
+    this.settings.temperatureGradient = this.settings.temperatureGradient
       .map((stop) => ({
                     temperature: Number.isFinite(stop.temperature) ? stop.temperature : 0,
           color: typeof stop.color === "string" && stop.color.trim().length > 0
@@ -318,6 +388,11 @@ export default class WeatherPlugin extends Plugin {
           }));
       }
     this.settings.showDateWhenDifferent = Boolean(this.settings.showDateWhenDifferent);
+    if (typeof this.settings.dateFormat !== "string" || this.settings.dateFormat.trim().length === 0) {
+      this.settings.dateFormat = defaults.dateFormat;
+    } else {
+      this.settings.dateFormat = this.settings.dateFormat.trim();
+    }
   }
   private async loadSettings(): Promise<void> {
         const stored = await this.loadData();
@@ -356,52 +431,52 @@ export default class WeatherPlugin extends Plugin {
     this.requestWidgetRefresh();
   }
   private scheduleWeatherRefresh(): void {
-        if (this.refreshIntervalId !== null) {
-            window.clearInterval(this.refreshIntervalId);
+    if (this.refreshIntervalId !== null) {
+      window.clearInterval(this.refreshIntervalId);
       this.refreshIntervalId = null;
     }
     const refreshMinutes = Math.max(1, this.settings.autoRefreshMinutes);
     const intervalMs = refreshMinutes * 60_000;
     const id = window.setInterval(() => {
-            void this.refreshWeatherData();
+      this.refreshWeatherData().catch((error) => {
+        console.error("WeatherPlugin: failed to refresh weather data", error);
+      });
     }, intervalMs);
     this.refreshIntervalId = id;
     this.registerInterval(id);
   }
   private scheduleWidgetMinuteUpdates(): void {
-    
     if (this.widgetMinuteTimeoutId !== null) {
-      
       window.clearTimeout(this.widgetMinuteTimeoutId);
-      
       this.widgetMinuteTimeoutId = null;
-      
     }
-    
-    const scheduleNext = () => {
-      
-      const now = Date.now();
-      
-      const nextMinute = Math.floor(now / 60_000) * 60_000 + 60_000;
-      
-      const delay = Math.max(0, nextMinute - now);
-      
-      this.widgetMinuteTimeoutId = window.setTimeout(() => {
-        
-        this.widgetMinuteTimeoutId = null;
-        
-        this.handleWidgetMinuteTick();
-        
-        scheduleNext();
-        
-      }, delay);
-      
+    if (this.widgetMinuteIntervalId !== null) {
+      window.clearInterval(this.widgetMinuteIntervalId);
+      this.widgetMinuteIntervalId = null;
+    }
+    const runTick = (force = false) => {
+      try {
+        this.handleWidgetMinuteTick(force);
+      } catch (error) {
+        console.error("WeatherPlugin: widget minute tick failed", error);
+      }
     };
-    
-    this.handleWidgetMinuteTick(true);
-    
-    scheduleNext();
-    
+    const startInterval = () => {
+      const id = window.setInterval(() => {
+        runTick();
+      }, 60_000);
+      this.widgetMinuteIntervalId = id;
+      this.registerInterval(id);
+    };
+    runTick(true);
+    const now = Date.now();
+    const nextMinute = Math.floor(now / 60_000) * 60_000 + 60_000;
+    const delay = Math.max(0, nextMinute - now);
+    this.widgetMinuteTimeoutId = window.setTimeout(() => {
+      this.widgetMinuteTimeoutId = null;
+      runTick();
+      startInterval();
+    }, delay);
   }
   
   private handleWidgetMinuteTick(force = false): void {

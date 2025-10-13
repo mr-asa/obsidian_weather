@@ -1,5 +1,6 @@
 import type WeatherPlugin from "../main";
 import {
+  DEFAULT_SETTINGS,
   type CityLocation,
   type TemperatureColorStop,
   type WeatherCategory,
@@ -11,6 +12,13 @@ import { clamp, lerp } from "../utils/math";
 import { ensureHex, lerpColorGamma, rgba } from "../utils/color";
 import { buildSunOverlayState, computeGradientLayers } from "../utils/widget-render";
 import { computeSolarAltitude, timezoneOffsetFromIdentifier } from "../utils/solar";
+import {
+  createDateKey,
+  extractDateComponents,
+  formatDateComponents,
+  normalizeDateFormat,
+  type DateComponents,
+} from "../utils/date-format";
 const MINUTES_IN_DAY = 1_440;
 const MS_PER_MINUTE = 60_000;
 const TIME_EMOJIS: Record<TimeOfDayKey, string> = {
@@ -206,36 +214,43 @@ function formatTimeForCity(
   });
 }
 
+function resolveCityDateComponents(
+  date: Date,
+  timezone: string | null,
+  timezoneOffsetMinutes: number | null,
+  longitude: number,
+): DateComponents {
+  let targetOffset: number | null = null;
+  if (typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)) {
+    targetOffset = timezoneOffsetMinutes;
+  }
+  if (targetOffset == null && timezone) {
+    const resolved = timezoneOffsetFromIdentifier(date, timezone);
+    if (typeof resolved === "number" && Number.isFinite(resolved)) {
+      targetOffset = resolved;
+    }
+  }
+  if (targetOffset == null) {
+    targetOffset = clampOffsetByLon(longitude);
+  }
+  const shifted = shiftedDateByOffset(date, targetOffset);
+  return extractDateComponents(shifted);
+}
+
 function formatDateForCity(
   date: Date,
   timezone: string | null,
   timezoneOffsetMinutes: number | null,
   longitude: number,
-  locale: string,
-): string {
-  if (timezone) {
-    try {
-      return date.toLocaleDateString(locale, {
-        timeZone: timezone,
-        day: "2-digit",
-        month: "2-digit",
-      });
-    } catch (error) {
-      console.warn("WeatherWidget: failed to format date with timezone", timezone, error);
-    }
-  }
-  if (typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)) {
-    const shifted = shiftedDateByOffset(date, timezoneOffsetMinutes);
-    return shifted.toLocaleDateString(locale, {
-      day: "2-digit",
-      month: "2-digit",
-    });
-  }
-  const shifted = shiftedDateByOffset(date, clampOffsetByLon(longitude));
-  return shifted.toLocaleDateString(locale, {
-    day: "2-digit",
-    month: "2-digit",
-  });
+  formatPattern: string,
+): { label: string; key: string } {
+  const components = resolveCityDateComponents(date, timezone, timezoneOffsetMinutes, longitude);
+  const normalizedFormat = normalizeDateFormat(formatPattern, DEFAULT_SETTINGS.dateFormat);
+  const label = formatDateComponents(components, normalizedFormat, DEFAULT_SETTINGS.dateFormat);
+  return {
+    label,
+    key: createDateKey(components),
+  };
 }
 
 function sunPositionPercent(
@@ -285,23 +300,58 @@ function timeColorBySun(
     const tod = getTimeOfDay(Math.floor(nowMinutes / 60));
     return ensureHex(settings.timeBaseColors[tod]);
   }
-  const mid = Math.floor((sunriseMinutes + sunsetMinutes) / 2);
-  const stops = [
-    { m: 0, color: ensureHex(settings.timeBaseColors.night) },
-    { m: sunriseMinutes, color: ensureHex(settings.timeBaseColors.morning) },
-    { m: mid, color: ensureHex(settings.timeBaseColors.day) },
-    { m: sunsetMinutes, color: ensureHex(settings.timeBaseColors.evening) },
-    { m: MINUTES_IN_DAY, color: ensureHex(settings.timeBaseColors.night) },
-  ];
-  for (let i = 0; i < stops.length - 1; i += 1) {
-    const current = stops[i];
-    const next = stops[i + 1];
-    if (nowMinutes >= current.m && nowMinutes <= next.m) {
-      const factor = (nowMinutes - current.m) / Math.max(1, next.m - current.m);
-      return lerpColorGamma(current.color, next.color, factor);
-    }
+  const transitions = settings.timeColorTransitions ?? DEFAULT_SETTINGS.timeColorTransitions;
+  const sunriseBefore = Math.max(0, transitions.sunrise.before);
+  const sunriseAfter = Math.max(0, transitions.sunrise.after);
+  const sunsetBefore = Math.max(0, transitions.sunset.before);
+  const sunsetAfter = Math.max(0, transitions.sunset.after);
+
+  const colors = {
+    night: ensureHex(settings.timeBaseColors.night),
+    morning: ensureHex(settings.timeBaseColors.morning),
+    day: ensureHex(settings.timeBaseColors.day),
+    evening: ensureHex(settings.timeBaseColors.evening),
+  };
+
+  const sunsetWindowStart = Math.max(0, sunsetMinutes - sunsetBefore);
+  const sunsetWindowEnd = Math.min(MINUTES_IN_DAY, sunsetMinutes + sunsetAfter);
+  const sunriseWindowEnd = sunriseMinutes + sunriseAfter;
+  const beforeSunriseDistance = (sunriseMinutes - nowMinutes + MINUTES_IN_DAY) % MINUTES_IN_DAY;
+
+  if (sunriseBefore > 0 && beforeSunriseDistance <= sunriseBefore) {
+    const window = Math.max(1, sunriseBefore);
+    const t = 1 - beforeSunriseDistance / window;
+    const eased = easeCos(t);
+    return lerpColorGamma(colors.night, colors.morning, eased);
   }
-  return ensureHex(settings.timeBaseColors.night);
+
+  if (sunriseAfter > 0 && nowMinutes >= sunriseMinutes && nowMinutes <= sunriseWindowEnd) {
+    const window = Math.max(1, sunriseAfter);
+    const t = (nowMinutes - sunriseMinutes) / window;
+    const eased = easeCos(t);
+    return lerpColorGamma(colors.morning, colors.day, eased);
+  }
+
+  if (sunsetBefore > 0 && nowMinutes >= sunsetWindowStart && nowMinutes < sunsetMinutes) {
+    const span = Math.max(1, sunsetMinutes - sunsetWindowStart);
+    const t = (nowMinutes - sunsetWindowStart) / span;
+    const eased = easeCos(t);
+    return lerpColorGamma(colors.day, colors.evening, eased);
+  }
+
+  if (sunsetAfter > 0 && nowMinutes >= sunsetMinutes && nowMinutes <= sunsetWindowEnd) {
+    const span = Math.max(1, sunsetWindowEnd - sunsetMinutes);
+    const t = (nowMinutes - sunsetMinutes) / span;
+    const eased = easeCos(t);
+    return lerpColorGamma(colors.evening, colors.night, eased);
+  }
+
+  if (nowMinutes >= sunriseWindowEnd && nowMinutes < sunsetWindowStart) {
+    return colors.day;
+  }
+
+  const phase = getTimeOfDay(Math.floor(nowMinutes / 60));
+  return colors[phase] ?? colors.day;
 }
 export class WeatherWidget {
   private host: HTMLElement | null = null;
@@ -348,7 +398,9 @@ export class WeatherWidget {
       return;
     }
     const viewerNow = new Date();
-    const viewerDate = viewerNow.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" });
+    const dateFormat = normalizeDateFormat(settings.dateFormat, DEFAULT_SETTINGS.dateFormat);
+    const viewerDateComponents = extractDateComponents(viewerNow);
+    const viewerDateKey = createDateKey(viewerDateComponents);
     const container = this.host.createDiv({ cls: "city-widget" });
     for (const city of settings.cities) {
       const snapshot = this.plugin.getWeatherSnapshot(city.id);
@@ -365,7 +417,7 @@ export class WeatherWidget {
       const now = new Date();
       const cityOffsetMinutes = resolveTimezoneOffsetMinutes(now, timezone, explicitOffset, city.longitude);
       const localTime = formatTimeForCity(now, timezone, cityOffsetMinutes, city.longitude, locale);
-      const localDate = formatDateForCity(now, timezone, cityOffsetMinutes, city.longitude, locale);
+      const cityDate = formatDateForCity(now, timezone, cityOffsetMinutes, city.longitude, dateFormat);
       const [hours] = localTime.split(":");
       const hourValue = Number.parseInt(hours ?? "0", 10);
       const timeOfDay = getTimeOfDay(Number.isFinite(hourValue) ? hourValue : 0);
@@ -431,6 +483,7 @@ export class WeatherWidget {
       sunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
       sunIconEl.style.top = `${overlayState.icon.topPercent}%`;
       sunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
+      sunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
       sunIconEl.style.color = overlayState.icon.color;
       sunIconEl.style.opacity = `${overlayState.icon.opacity}`;
       const leftGroup = row.createDiv({ cls: "city-row__group city-row__group--left" });
@@ -443,8 +496,8 @@ export class WeatherWidget {
       const timeInfo = rightGroup.createDiv({ cls: "time-info" });
       timeInfo.createSpan({ text: TIME_EMOJIS[timeOfDay] ?? "" });
       timeInfo.createSpan({ text: localTime });
-      if (settings.showDateWhenDifferent && localDate !== viewerDate) {
-        timeInfo.createSpan({ cls: "date", text: localDate });
+      if (settings.showDateWhenDifferent && cityDate.key !== viewerDateKey) {
+        timeInfo.createSpan({ cls: "date", text: cityDate.label });
       }
       const temperatureEl = rightGroup.createDiv({ cls: "temperature" });
       temperatureEl.textContent = temperatureLabel;

@@ -122,6 +122,7 @@ export interface WeatherWidgetSettings {
   temperatureAlpha: AlphaGradientSettings;
   categoryStyles: Record<WeatherCategory, CategoryStyle>;
   timeBaseColors: Record<TimeOfDayKey, string>;
+  timeColorTransitions: SunColorTransitions;
   sunLayer: SunLayerSettings;
   gradients: GradientSettings;
   gradientEdgePortion: number;
@@ -130,6 +131,7 @@ export interface WeatherWidgetSettings {
   daySpan: DaySpanSettings;
   temperatureGradient: TemperatureColorStop[];
   showDateWhenDifferent: boolean;
+  dateFormat: string;
 }
 export const WEATHER_CATEGORIES: WeatherCategory[] = [
     "sunny",
@@ -185,6 +187,10 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     day: "#87CEEB",
     evening: "#bd7070",
     night: "#162331",
+  },
+  timeColorTransitions: {
+    sunrise: { before: 45, after: 45 },
+    sunset: { before: 45, after: 45 },
   },
   sunLayer: {
         colors: {
@@ -255,4 +261,5 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     { temperature: 40, color: "#ff4242" },
   ],
   showDateWhenDifferent: true,
+  dateFormat: "dd.MM",
 };

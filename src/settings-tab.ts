@@ -18,6 +18,12 @@ import { DEFAULT_ALPHA_EASING_PROFILE, type AlphaEasingProfile } from "./utils/a
 import { computeSolarAltitude } from "./utils/solar";
 import { buildSunOverlayState, computeGradientLayers } from "./utils/widget-render";
 import { createId } from "./utils/id";
+import {
+  createDateKey,
+  extractDateComponents,
+  formatDateComponents,
+  normalizeDateFormat,
+} from "./utils/date-format";
 const LAT_MIN = -90;
 const LAT_MAX = 90;
 const LON_MIN = -180;
@@ -510,6 +516,100 @@ export class WeatherSettingsTab extends PluginSettingTab {
             this.refreshPreviewRow();
           }));
         });
+    this.appendSectionHeader(
+      parent,
+      strings.settings.timePalette.transitionsHeading,
+      strings.settings.timePalette.transitionsHint,
+      { divider: true },
+    );
+    const transitionDefaults = DEFAULT_SETTINGS.timeColorTransitions;
+    const ensureTransitionPhase = (phase: "sunrise" | "sunset") => {
+      const current = this.plugin.settings.timeColorTransitions ?? (
+        this.plugin.settings.timeColorTransitions = {
+          sunrise: { ...transitionDefaults.sunrise },
+          sunset: { ...transitionDefaults.sunset },
+        }
+      );
+      if (!current[phase]) {
+        current[phase] = { ...transitionDefaults[phase] };
+      }
+      return current[phase];
+    };
+    const getTransitionValue = (phase: "sunrise" | "sunset", field: "before" | "after") => {
+      const transitions = this.plugin.settings.timeColorTransitions;
+      return transitions?.[phase]?.[field] ?? transitionDefaults[phase][field];
+    };
+    const transitionsRow = parent.createDiv({ cls: "weather-settings__grid weather-settings__sun-transition-columns" });
+    const createTransitionColumn = (
+      parentColumn: HTMLElement,
+      phase: "sunrise" | "sunset",
+      phaseLabel: string,
+      beforeLabel: string,
+      afterLabel: string,
+    ) => {
+      const column = parentColumn.createDiv({ cls: "weather-settings__sun-transition-column" });
+      const inline = column.createDiv({ cls: "weather-settings__sun-transition-inline" });
+      const beforeSpan = inline.createSpan({ cls: "weather-settings__sun-transition-label", text: beforeLabel });
+      beforeSpan.setAttr("aria-hidden", "true");
+      const beforeInput = inline.createEl("input", {
+        cls: "weather-settings__sun-transition-input",
+        attr: { type: "number", min: "0", step: "1" },
+      });
+      beforeInput.value = String(getTransitionValue(phase, "before"));
+      inline.createSpan({ cls: "weather-settings__sun-transition-phase", text: phaseLabel });
+      const afterInput = inline.createEl("input", {
+        cls: "weather-settings__sun-transition-input",
+        attr: { type: "number", min: "0", step: "1" },
+      });
+      afterInput.value = String(getTransitionValue(phase, "after"));
+      const afterSpan = inline.createSpan({ cls: "weather-settings__sun-transition-label", text: afterLabel });
+      afterSpan.setAttr("aria-hidden", "true");
+      const bindInput = (fieldKey: "before" | "after", input: HTMLInputElement) => {
+        const commit = () => {
+          const parsed = Number(input.value);
+          if (!Number.isFinite(parsed) || parsed < 0) {
+            input.value = String(getTransitionValue(phase, fieldKey));
+            return;
+          }
+          const normalized = Math.round(parsed);
+          const target = ensureTransitionPhase(phase);
+          if (target[fieldKey] === normalized) {
+            input.value = String(target[fieldKey]);
+            return;
+          }
+          target[fieldKey] = normalized;
+          input.value = String(normalized);
+          void this.plugin.saveSettings();
+          this.refreshPreviewRow();
+        };
+        input.addEventListener("change", commit);
+        input.addEventListener("blur", commit);
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit();
+            input.blur();
+          }
+        });
+      };
+      bindInput("before", beforeInput);
+      bindInput("after", afterInput);
+    };
+    createTransitionColumn(
+      transitionsRow,
+      "sunrise",
+      strings.settings.timePalette.sunriseLabel,
+      strings.settings.timePalette.sunriseBeforeLabel,
+      strings.settings.timePalette.sunriseAfterLabel,
+    );
+    transitionsRow.createDiv({ cls: "weather-settings__divider-vertical" });
+    createTransitionColumn(
+      transitionsRow,
+      "sunset",
+      strings.settings.timePalette.sunsetLabel,
+      strings.settings.timePalette.sunsetBeforeLabel,
+      strings.settings.timePalette.sunsetAfterLabel,
+    );
   }
   private renderWeatherPaletteContent(parent: HTMLElement, strings: LocaleStrings): void {
         const grid = parent.createDiv({ cls: "weather-settings__color-grid" });
@@ -1282,6 +1382,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         this.previewSunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
         this.previewSunIconEl.style.top = `${overlayState.icon.topPercent}%`;
         this.previewSunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
+        this.previewSunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
         this.previewSunIconEl.style.color = overlayState.icon.color;
         this.previewSunIconEl.style.opacity = `${overlayState.icon.opacity}`;
       }
@@ -1294,10 +1395,14 @@ export class WeatherSettingsTab extends PluginSettingTab {
       this.previewTimeTextEl.textContent = timeLabel;
     }
     if (this.previewDateEl) {
-      const showDate = this.plugin.settings.showDateWhenDifferent;
-      this.previewDateEl.textContent = strings.settings.preview.sampleDate;
-      this.previewDateEl.classList.toggle('is-hidden', !showDate);
-      this.previewDateEl.style.opacity = showDate ? '0.6' : '0';
+      const dateFormat = normalizeDateFormat(this.plugin.settings.dateFormat, DEFAULT_SETTINGS.dateFormat);
+      const cityDateComponents = extractDateComponents(previewLocalDate);
+      const viewerDateComponents = extractDateComponents(previewDate);
+      const shouldShowDate = this.plugin.settings.showDateWhenDifferent
+        && createDateKey(cityDateComponents) !== createDateKey(viewerDateComponents);
+      this.previewDateEl.textContent = formatDateComponents(cityDateComponents, dateFormat, DEFAULT_SETTINGS.dateFormat);
+      this.previewDateEl.classList.toggle("is-hidden", !shouldShowDate);
+      this.previewDateEl.style.opacity = shouldShowDate ? "0.6" : "0";
     }
     const weatherIcon = categoryStyle?.icon?.trim() || PREVIEW_FALLBACK_ICON;
     const weatherLabel = this.plugin.translateWeatherCategory(this.sampleWeatherCategory);
@@ -1403,7 +1508,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
         },
       },
     );
-    new Setting(section)
+    const dateRow = section.createDiv({ cls: "weather-settings__date-row" });
+    new Setting(dateRow)
     .setName(strings.settings.other.showDateLabel)
       .setDesc(strings.settings.other.showDateDescription)
       .addToggle((toggle) => {
@@ -1414,7 +1520,25 @@ export class WeatherSettingsTab extends PluginSettingTab {
           this.refreshPreviewRow();
         });
       });
-    }
+    new Setting(dateRow)
+    .setName(strings.settings.other.dateFormatLabel)
+      .setDesc(strings.settings.other.dateFormatDescription)
+      .addText((text) => {
+                text.setPlaceholder(DEFAULT_SETTINGS.dateFormat);
+        text.setValue(this.plugin.settings.dateFormat);
+        text.onChange((value) => {
+                    const trimmed = value.trim();
+          const normalized = trimmed.length > 0 ? trimmed : DEFAULT_SETTINGS.dateFormat;
+          if (this.plugin.settings.dateFormat === normalized) {
+            return;
+          }
+          this.plugin.settings.dateFormat = normalized;
+          text.setValue(normalized);
+          void this.plugin.saveSettings();
+          this.refreshPreviewRow();
+        });
+      });
+  }
   private renderResetSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
     section.createEl("h3", { text: strings.settings.reset.heading });

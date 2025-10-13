@@ -44,7 +44,7 @@
 
   grid-template-columns: repeat(2, minmax(0, 1fr));
 
-  column-gap: 0;
+  column-gap: 32px;
 
   row-gap: 0;
 
@@ -874,6 +874,17 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin: 20px 0 16px;
+}
+
+.weather-settings__date-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.weather-settings__date-row .setting-item {
+  margin: 0;
 }
 
 .weather-settings__grid-item {

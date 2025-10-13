@@ -52,6 +52,14 @@ export interface LocaleStrings {
     timePalette: {
       heading: string;
       description: string;
+      transitionsHeading: string;
+      transitionsHint: string;
+      sunriseLabel: string;
+      sunriseBeforeLabel: string;
+      sunriseAfterLabel: string;
+      sunsetLabel: string;
+      sunsetBeforeLabel: string;
+      sunsetAfterLabel: string;
     };
     weatherLayer: {
       heading: string;
@@ -140,6 +148,8 @@ export interface LocaleStrings {
       description: string;
       showDateLabel: string;
       showDateDescription: string;
+      dateFormatLabel: string;
+      dateFormatDescription: string;
     };
     reset: {
       heading: string;
@@ -253,6 +263,14 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       timePalette: {
         heading: "Time-of-day colors",
         description: "Tune base color used for sunrise, day, evening, and night.",
+        transitionsHeading: "Daylight transitions",
+        transitionsHint: "Set how long morning and evening colors blend around sunrise and sunset.",
+        sunriseLabel: "Sunrise",
+        sunriseBeforeLabel: "Before",
+        sunriseAfterLabel: "After",
+        sunsetLabel: "Sunset",
+        sunsetBeforeLabel: "Before",
+        sunsetAfterLabel: "After",
       },
       weatherLayer: {
         heading: "Weather",
@@ -341,6 +359,8 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         description: "Miscellaneous options for the widget.",
         showDateLabel: "Show date when different",
         showDateDescription: "Append the local date whenever it differs from your current day.",
+        dateFormatLabel: "Date format",
+        dateFormatDescription: "Use tokens dd, d, MM, M, yyyy, yy. Example: dd.MM",
       },
       reset: {
         heading: "Reset settings",
@@ -466,6 +486,14 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       timePalette: {
         heading: "Цвета по времени суток",
         description: "Настройте основной цвет для рассвета, дня, вечера и ночи.",
+        transitionsHeading: "Переходы цвета дня",
+        transitionsHint: "Настройте, сколько минут цвета рассвета и заката смешиваются вокруг восхода и заката.",
+        sunriseLabel: "Восход",
+        sunriseBeforeLabel: "до",
+        sunriseAfterLabel: "после",
+        sunsetLabel: "Закат",
+        sunsetBeforeLabel: "до",
+        sunsetAfterLabel: "после",
       },
       weatherLayer: {
         heading: "Погода",
@@ -554,6 +582,8 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         description: "Дополнительные опции виджета.",
         showDateLabel: "Показывать дату, когда день отличается",
         showDateDescription: "Добавлять локальную дату, если она отличается от текущей.",
+        dateFormatLabel: "Формат даты",
+        dateFormatDescription: "Используйте dd, d, MM, M, yyyy, yy. Пример: dd.MM",
       },
      reset: {
         heading: "Сброс настроек",

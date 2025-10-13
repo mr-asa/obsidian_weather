@@ -197,6 +197,7 @@ export interface SunOverlayIconState {
   leftPercent: number;
   overlayLeftPercent: number;
   topPercent: number;
+  verticalProgress: number;
   scale: number;
   color: string;
   opacity: number;
@@ -377,14 +378,13 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     ? input.sunAltitudeDegrees
     : null;
   const computedAltitudeRatio = altitudeFromInput != null
-    ? clamp(altitudeFromInput / 90, 0, 1)
+    ? altitudeFromInput / 90
     : Math.sin(Math.PI * sunProgress);
   const altitudeRatio = Number.isFinite(computedAltitudeRatio)
     ? clamp01(computedAltitudeRatio)
     : 0;
-  const horizonTop = 86;
-  const zenithTop = 14;
-  const iconTop = clamp(horizonTop - altitudeRatio * (horizonTop - zenithTop), zenithTop, horizonTop);
+  const iconVerticalProgress = altitudeRatio;
+  const iconTop = clamp((1 - iconVerticalProgress) * 100, -10, 110);
   const gradientCenterBase = effectiveStart + effectiveSpan / 2;
   const gradientCenterFraction = Number.isFinite(gradientCenterBase)
     ? clamp01(gradientCenterBase)
@@ -397,6 +397,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     leftPercent: iconLeftRowPercent,
     overlayLeftPercent: iconLeftOverlayPercent,
     topPercent: iconTop,
+    verticalProgress: iconVerticalProgress,
     scale: iconScale,
     color: sunColor,
     opacity: alphaPeak,
