@@ -278,7 +278,6 @@
   opacity: 0.7;
 }
 
-
 .weather-settings__gradient-preview {
   height: 16px;
   margin-top: 10px;
@@ -594,13 +593,6 @@
 .weather-settings__grid-item .setting-item-control select {
   width: 90px;
   text-align: right;
-}
-
-.weather-settings__grid-spacer {
-  grid-column: span 1;
-  min-height: 0;
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .weather-settings__sun-transition-columns {

@@ -1,15 +1,13 @@
 import type WeatherPlugin from "../main";
 import {
   DEFAULT_SETTINGS,
-  type CityLocation,
   type TemperatureColorStop,
   type WeatherCategory,
   type WeatherWidgetSettings,
   type TimeOfDayKey,
 } from "../settings";
-import type { WeatherSnapshot } from "../services/weather-service";
-import { clamp, lerp } from "../utils/math";
-import { ensureHex, lerpColorGamma, rgba } from "../utils/color";
+import { clamp } from "../utils/math";
+import { ensureHex, lerpColorGamma } from "../utils/color";
 import { buildSunOverlayState, computeGradientLayers } from "../utils/widget-render";
 import { computeSolarAltitude, timezoneOffsetFromIdentifier } from "../utils/solar";
 import {
@@ -449,6 +447,7 @@ export class WeatherWidget {
       row.style.backgroundImage = `${gradientState.temperatureGradient}, ${gradientState.weatherGradient}`;
       row.style.backgroundRepeat = "no-repeat, no-repeat";
       row.style.backgroundBlendMode = "normal, normal";
+      row.style.backgroundSize = "100% 100%, 100% 100%";
       const overlay = row.createDiv({ cls: "sun-overlay" });
       const nowMinutes = timezone
         ? minutesOfDayInTimezone(now, timezone)
@@ -471,11 +470,13 @@ export class WeatherWidget {
       });
       overlay.style.background = overlayState.background;
       overlay.style.backgroundBlendMode = overlayState.blendMode;
+      overlay.style.backgroundRepeat = "no-repeat, no-repeat";
+      overlay.style.backgroundSize = "100% 100%, 100% 100%";
       overlay.style.left = `-${overlayState.offsetPercent}%`;
       overlay.style.right = "auto";
       overlay.style.width = `${overlayState.widthPercent}%`;
-      overlay.style.top = "-16px";
-      overlay.style.bottom = "-16px";
+      overlay.style.top = "0";
+      overlay.style.bottom = "0";
       const sunIconEl = row.createSpan({ cls: "sun-overlay__icon" });
       sunIconEl.setAttr("aria-hidden", "true");
       sunIconEl.classList.toggle("is-monospaced", Boolean(settings.sunLayer.icon.monospaced));

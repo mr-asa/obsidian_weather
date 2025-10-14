@@ -12,8 +12,8 @@ import {
   type TimeOfDayKey,
   type WeatherProviderId,
 } from "./settings";
-import { clamp, lerp, normalize } from "./utils/math";
-import { ensureHex, lerpColorGamma, rgba } from "./utils/color";
+import { clamp, normalize } from "./utils/math";
+import { ensureHex, lerpColorGamma } from "./utils/color";
 import { DEFAULT_ALPHA_EASING_PROFILE, type AlphaEasingProfile } from "./utils/alpha-gradient";
 import { computeSolarAltitude } from "./utils/solar";
 import { buildSunOverlayState, computeGradientLayers } from "./utils/widget-render";
@@ -63,10 +63,6 @@ const ALPHA_PROFILE_OPTIONS: readonly AlphaEasingProfile[] = [
   "circOut",
   "circInOut",
 ];
-function clamp01(value: number): number {
-  return clamp(value, 0, 1);
-}
-
 function shiftedDateByOffset(date: Date, targetOffsetMin: number): Date {
   const localOffset = -date.getTimezoneOffset();
   const delta = targetOffsetMin - localOffset;
@@ -119,7 +115,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.plugin = plugin;
   }
   display(): void {
-        const { containerEl } = this;
+    const { containerEl } = this;
     containerEl.empty();
     this.temperatureTableBody = undefined;
     const strings = this.plugin.getStrings();
@@ -1095,11 +1091,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const temperatureSetting = new Setting(controls)
     .setName(strings.settings.preview.temperatureLabel)
       .setDesc(strings.settings.preview.temperatureHint);
-      let temperatureValue: HTMLSpanElement;
+      const temperatureValue = temperatureSetting.controlEl.createSpan({ cls: "weather-settings__preview-value" });
     const updateTemperatureLabel = () => {
-            if (!temperatureValue) {
-                return;
-      }
       const formatted = `${this.sampleTemperature > 0 ? '+' : ''}${this.sampleTemperature}°`;
       temperatureValue.textContent = formatted;
     };
@@ -1114,7 +1107,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
         this.refreshGradientPreview();
       });
     });
-    temperatureValue = temperatureSetting.controlEl.createSpan({ cls: "weather-settings__preview-value" });
     temperatureSetting.controlEl.querySelector("input[type=\"range\"]")?.classList.add("weather-settings__preview-slider--temperature");
     updateTemperatureLabel();
     const weatherSetting = new Setting(controls)
@@ -1320,7 +1312,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
       return;
     }
     const settings = this.plugin.settings;
-    const strings = this.plugin.getStrings();
     const daySpan = clamp(PREVIEW_DAY_SPAN, settings.daySpan.min, settings.daySpan.max);
     const dayStart = clamp(PREVIEW_DAY_START, 0, Math.max(0, 1 - daySpan));
     const dayEnd = clamp(dayStart + daySpan, 0, 1);
@@ -1372,11 +1363,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
       });
       this.previewOverlay.style.background = overlayState.background;
       this.previewOverlay.style.backgroundBlendMode = overlayState.blendMode;
+      this.previewOverlay.style.backgroundRepeat = "no-repeat, no-repeat";
+      this.previewOverlay.style.backgroundSize = "100% 100%, 100% 100%";
       this.previewOverlay.style.left = `-${overlayState.offsetPercent}%`;
       this.previewOverlay.style.right = "auto";
       this.previewOverlay.style.width = `${overlayState.widthPercent}%`;
-      this.previewOverlay.style.top = "-16px";
-      this.previewOverlay.style.bottom = "-16px";
+      this.previewOverlay.style.top = "0";
+      this.previewOverlay.style.bottom = "0";
       if (this.previewSunIconEl) {
         this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.plugin.settings.sunLayer.icon.monospaced));
         this.previewSunIconEl.textContent = overlayState.icon.symbol;

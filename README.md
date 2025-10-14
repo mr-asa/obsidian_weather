@@ -25,7 +25,7 @@ Weather Widget brings a live multi-city forecast directly into your Obsidian wor
   ```markdown
   ```weather-widget
   ```
-  ```
+
 - Insert a Canvas placeholder with **Weather Widget: Insert Canvas node**; it drops a ready-to-configure code block at your cursor location.
 - Configure everything under *Settings -> Weather Widget*. The widget refreshes automatically whenever settings change.
 
@@ -36,43 +36,58 @@ Weather Widget brings a live multi-city forecast directly into your Obsidian wor
 ## Settings Reference
 
 ### Localization
-- Switch the interface between English and Russian. The settings tab reloads itself instantly so you can continue tweaking without reopening it.
-- *Tip:* Match the plugin language to your dominant vault language to keep command names and notices consistent across Obsidian.
+- Switch the interface between English and Russian. This parameter does not affect city names.
 
 ### Weather updates
-- Choose the data provider, enter or clear an API key (stored per provider), and set the cache/auto-refresh interval.
-- Open-Meteo requires no key; OpenWeather does and supports metric units out of the box.
-- *Tips:* Keep the cache interval at 10–30 minutes to stay under OpenWeather quotas; bump it shorter only while testing quick style changes. Switching providers automatically updates the cached key and forces a refresh.
+- There are two data providers: Open-Meteo and OpenWeather at the moment. Choose the one you prefer.
+  - **Open-Meteo** requires no key
+  - **OpenWeather** does, but account is free and limits the number of requests per day.
+- Switching providers automatically updates the cached key and forces a refresh.
 
 ### Locations
 - Maintain the list of cities shown in the widget. Each row lets you name the location, enter latitude/longitude, reorder, or remove it.
-- *Tips:* Enter coordinates in decimal degrees; commas are converted to dots for convenience. Use the arrow buttons to match the on-screen ordering and keep frequently referenced cities near the top.
+    > [!note] 
+    > You can use any language, words and symbols for coordinate names.
+    > 
+    > I added this so you can set convenient names for different locations. For example, I live near a mountain and like to compare the temperature at the summit with the city below. But specifying this exact point by name can be problematic.
 
 ### Preview playground
 - The top preview row mirrors the real widget and updates with every change. Sliders simulate the local time and temperature, while the dropdown swaps between weather categories.
-- *Tips:* Move the time slider to dawn/dusk to tune sunrise and sunset gradients, and try extreme temperatures to verify the color ramp still reads well against your theme.
+    > [!note]
+    > Small changes to the sliders can be made using the left/right or up/down buttons.
 
-### Time palette
-- Pick base colors for morning/day/evening/night and define how many minutes before/after sunrise or sunset each blend begins.
-- *Tips:* Extend the sunrise “before” window (e.g. 60–90 minutes) for softer blue-hour transitions, and keep opposing phases distinct to avoid muddy gradients at noon or midnight.
+### Time-of-day palette
+- Pick base colors for morning/day/evening/night and 
+- Define how many minutes before/after sunrise or sunset each blend begins.
 
 ### Sun layer
-- Control the sun overlay colors, gradient width, opacity, icon glyph, scale, monospaced alignment, and transition windows.
-- *Tips:* Use monospaced icon mode for Unicode symbols (for example `\u2600`) to prevent wobble. Increase the sunrise/sunset "after" values if you want the warm tones to linger longer past golden hour.
+- There are several controls to tune the sun overlay.
+    - Colors of day, night and their transitions
+    - Alpha profile: choose between profiles to choose best for your theme from "sharp peak with soft edge" to "bubble profile"
+    - After choosing the profile, you can fine-tune the width of the gradient and opacity. 
+    - If you want to see the sun icon, you can choose between monospaced and regular font. This symbol is used to indicate angle of the sun above the horizon.
+    > [!note]
+    > Some symbols for sun (of your choice). The basic rule is that the symbol should be equidistant from the top and bottom of the line.
+    >
+    >    ◯◎◉▪▫▣◇◆-–—►◄▻◅▸◂▹◃⋯Θ•·৹●○⊢⊣
+    >
+    > For example, you can use the ◯ symbol to show big ring, or use monospaced font and type `—•—` for accurate horisontal symbol.
+    >
+    > Ore you can delete the icon completely.
+- By analogy with the time of day and night, you can choose the time of color change and the gradient of the sun itself.
 
 ### Weather layer
-- Assign a color and icon to every weather category (sunny, cloudy, drizzle, etc.) and adjust the layer’s alpha profile, inner opacity ratio, overall opacity, and left edge fade.
-- *Tips:* Keep icons to 1–3 characters so they remain centered, and disable the left fade when you want the city label side to stay fully saturated (useful on narrow displays).
+- Assign a color and icon to every weather category (sunny, cloudy, drizzle, etc.) and 
+- Adjust the layer’s alpha profile, inner opacity ratio, overall opacity, and left edge fade.
 
 ### Temperature layer
-- Edit the temperature-to-color table, add new stops, drag to reorder, or remove entries. Additional controls mirror the weather layer for alpha profile, inner segment width, opacity, and right-side fade.
-- *Tips:* Maintain ascending temperature values for clean interpolation. Use closely spaced stops around critical thresholds (e.g. freezing point) to highlight important regime changes.
+- Edit the temperature-to-color table, add new stops, drag to reorder, or remove entries. 
+- Additional controls mirror the weather layer for alpha profile, inner segment width, opacity, and right-side fade.
 
 ### Other options
-- Fine-tune the shared edge gradient width, toggle whether to show the local date when it differs from your system day, and set a custom date format (tokens: `dd`, `d`, `MM`, `M`, `yyyy`, `yy`).
-- *Tips:* Reduce the edge fraction if your vault theme already adds heavy card padding; expand it to ~0.4 for layouts that need more breathing room. Keep a fallback format like `dd.MM` handy for quick resets.
+- Edge gradient width - global setting for Wether and Temperature layers. You can set small values for small indicators of weater and temperature for solid day/night backgrounds. 
+    > [!note]
+    > The most inquisitive users may notice that when setting a clear boundary for weather or temperature transitions, they may not match in width in different cities. And you would be right. I decided to break this series down into small differences, showing the difference in daylight hours.
 
-## Data Providers
-- **Open-Meteo** — free, keyless, and best for quick setup.
-- **OpenWeather** — requires an API key but offers more granular codes; store the key once and the plugin remembers it per provider.
+
 
