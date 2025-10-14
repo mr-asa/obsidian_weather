@@ -1,5 +1,6 @@
 ﻿import { DEFAULT_LOCALE, type LocaleCode } from "./types";
 import type { TimeOfDayKey, WeatherCategory } from "../settings";
+import type { MonthNameSet } from "../utils/date-format";
 
 export interface LocaleStrings {
   languageNames: Record<LocaleCode, string>;
@@ -176,6 +177,9 @@ export interface LocaleStrings {
   };
   markdown: {
     debugParameters: string;
+  };
+  date: {
+    monthNames: MonthNameSet;
   };
   commands: {
     openTab: string;
@@ -360,7 +364,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         showDateLabel: "Show date when different",
         showDateDescription: "Append the local date whenever it differs from your current day.",
         dateFormatLabel: "Date format",
-        dateFormatDescription: "Use tokens dd, d, MM, M, yyyy, yy. Example: dd.MM",
+        dateFormatDescription: "Use tokens dd, d, MM, M, MMM, MMMM, yyyy, yy",
       },
       reset: {
         heading: "Reset settings",
@@ -398,8 +402,27 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       forecastPlaceholder: "Forecast will appear here",
       loadingLabel: "Loading...",
     },
-    markdown: {
+  markdown: {
       debugParameters: "TODO: handle block parameters - ",
+    },
+    date: {
+      monthNames: {
+        short: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        long: [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ],
+      },
     },
     commands: {
       openTab: "Open weather widget tab",
@@ -583,7 +606,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         showDateLabel: "Показывать дату, когда день отличается",
         showDateDescription: "Добавлять локальную дату, если она отличается от текущей.",
         dateFormatLabel: "Формат даты",
-        dateFormatDescription: "Используйте dd, d, MM, M, yyyy, yy. Пример: dd.MM",
+        dateFormatDescription: "Используйте токены dd, d, MM, M, MMM, MMMM, yyyy, yy",
       },
      reset: {
         heading: "Сброс настроек",
@@ -621,8 +644,27 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       forecastPlaceholder: "Прогноз появится здесь",
       loadingLabel: "Загрузка...",
     },
-    markdown: {
+  markdown: {
       debugParameters: "TODO: обработать параметры блока - ",
+    },
+    date: {
+      monthNames: {
+        short: ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"],
+        long: [
+          "января",
+          "февраля",
+          "марта",
+          "апреля",
+          "мая",
+          "июня",
+          "июля",
+          "августа",
+          "сентября",
+          "октября",
+          "ноября",
+          "декабря",
+        ],
+      },
     },
     commands: {
       openTab: "Открыть вкладку с виджетом",

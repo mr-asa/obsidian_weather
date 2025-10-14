@@ -69,7 +69,11 @@ Weather Widget brings a live multi-city forecast directly into your Obsidian wor
     > [!note]
     > Some symbols for sun (of your choice). The basic rule is that the symbol should be equidistant from the top and bottom of the line.
     >
-    >    ◯◎◉▪▫▣◇◆-–—►◄▻◅▸◂▹◃⋯Θ•·৹●○⊢⊣
+    > ◯○৹●•·◎◉
+    > ▣◇◆▪▫\
+    > \- – — \
+    > ►◄▻◅▸◂▹◃\
+    > ⋯Θ⊢⊣
     >
     > For example, you can use the ◯ symbol to show big ring, or use monospaced font and type `—•—` for accurate horisontal symbol.
     >

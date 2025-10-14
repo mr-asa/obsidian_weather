@@ -1312,6 +1312,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       return;
     }
     const settings = this.plugin.settings;
+    const strings = this.plugin.getStrings();
     const daySpan = clamp(PREVIEW_DAY_SPAN, settings.daySpan.min, settings.daySpan.max);
     const dayStart = clamp(PREVIEW_DAY_START, 0, Math.max(0, 1 - daySpan));
     const dayEnd = clamp(dayStart + daySpan, 0, 1);
@@ -1394,7 +1395,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
       const viewerDateComponents = extractDateComponents(previewDate);
       const shouldShowDate = this.plugin.settings.showDateWhenDifferent
         && createDateKey(cityDateComponents) !== createDateKey(viewerDateComponents);
-      this.previewDateEl.textContent = formatDateComponents(cityDateComponents, dateFormat, DEFAULT_SETTINGS.dateFormat);
+      this.previewDateEl.textContent = formatDateComponents(
+        cityDateComponents,
+        dateFormat,
+        DEFAULT_SETTINGS.dateFormat,
+        strings.date.monthNames,
+      );
       this.previewDateEl.classList.toggle("is-hidden", !shouldShowDate);
       this.previewDateEl.style.opacity = shouldShowDate ? "0.6" : "0";
     }

@@ -16,6 +16,7 @@ import {
   formatDateComponents,
   normalizeDateFormat,
   type DateComponents,
+  type MonthNameSet,
 } from "../utils/date-format";
 const MINUTES_IN_DAY = 1_440;
 const MS_PER_MINUTE = 60_000;
@@ -241,10 +242,16 @@ function formatDateForCity(
   timezoneOffsetMinutes: number | null,
   longitude: number,
   formatPattern: string,
+  monthNames?: MonthNameSet,
 ): { label: string; key: string } {
   const components = resolveCityDateComponents(date, timezone, timezoneOffsetMinutes, longitude);
   const normalizedFormat = normalizeDateFormat(formatPattern, DEFAULT_SETTINGS.dateFormat);
-  const label = formatDateComponents(components, normalizedFormat, DEFAULT_SETTINGS.dateFormat);
+  const label = formatDateComponents(
+    components,
+    normalizedFormat,
+    DEFAULT_SETTINGS.dateFormat,
+    monthNames,
+  );
   return {
     label,
     key: createDateKey(components),
@@ -415,7 +422,14 @@ export class WeatherWidget {
       const now = new Date();
       const cityOffsetMinutes = resolveTimezoneOffsetMinutes(now, timezone, explicitOffset, city.longitude);
       const localTime = formatTimeForCity(now, timezone, cityOffsetMinutes, city.longitude, locale);
-      const cityDate = formatDateForCity(now, timezone, cityOffsetMinutes, city.longitude, dateFormat);
+      const cityDate = formatDateForCity(
+        now,
+        timezone,
+        cityOffsetMinutes,
+        city.longitude,
+        dateFormat,
+        strings.date.monthNames,
+      );
       const [hours] = localTime.split(":");
       const hourValue = Number.parseInt(hours ?? "0", 10);
       const timeOfDay = getTimeOfDay(Number.isFinite(hourValue) ? hourValue : 0);
