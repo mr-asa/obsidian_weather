@@ -59,6 +59,7 @@ export default class WeatherPlugin extends Plugin {
     registerMarkdownWeatherWidget(this);
     this.addSettingTab(new WeatherSettingsTab(this.app, this));
     await this.refreshWeatherData();
+    this.requestWidgetRefresh();
     this.scheduleWeatherRefresh();
     this.scheduleWidgetMinuteUpdates();
   }
@@ -105,7 +106,6 @@ export default class WeatherPlugin extends Plugin {
   requestWidgetRefresh(): void {
     for (const widget of Array.from(this.widgetInstances)) {
       if (!widget.isMounted()) {
-        this.widgetInstances.delete(widget);
         continue;
       }
       try {
@@ -144,6 +144,7 @@ export default class WeatherPlugin extends Plugin {
   }
   onSettingsTabClosed(): void {
         this.scheduleWidgetMinuteUpdates();
+    this.requestWidgetRefresh();
   }
   async resetSettings(): Promise<void> {
         this.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as WeatherWidgetSettings;
@@ -437,10 +438,17 @@ export default class WeatherPlugin extends Plugin {
     }
     const refreshMinutes = Math.max(1, this.settings.autoRefreshMinutes);
     const intervalMs = refreshMinutes * 60_000;
-    const id = window.setInterval(() => {
-      this.refreshWeatherData().catch((error) => {
+    const performRefresh = async () => {
+      try {
+        await this.refreshWeatherData();
+      } catch (error) {
         console.error("WeatherPlugin: failed to refresh weather data", error);
-      });
+      } finally {
+        this.requestWidgetRefresh();
+      }
+    };
+    const id = window.setInterval(() => {
+      void performRefresh();
     }, intervalMs);
     this.refreshIntervalId = id;
     this.registerInterval(id);
@@ -498,14 +506,11 @@ export default class WeatherPlugin extends Plugin {
   }
   
   
-  async refreshWeatherData(): Promise<void> {
+  async refreshWeatherData(): Promise<boolean> {
         if (this.settings.cities.length === 0) {
             const hadData = this.weatherData.size > 0;
       this.weatherData.clear();
-      if (hadData) {
-                this.requestWidgetRefresh();
-      }
-      return;
+      return hadData;
     }
     let updated = false;
     const activeCityIds = new Set<string>();
@@ -522,11 +527,9 @@ export default class WeatherPlugin extends Plugin {
     for (const existingCityId of Array.from(this.weatherData.keys())) {
             if (!activeCityIds.has(existingCityId)) {
                 this.weatherData.delete(existingCityId);
-        updated = true;
+                updated = true;
       }
     }
-    if (updated) {
-            this.requestWidgetRefresh();
-    }
+    return updated;
   }
 }

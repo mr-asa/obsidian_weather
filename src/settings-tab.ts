@@ -302,6 +302,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       applyProviderState();
       await this.plugin.saveSettings();
       await this.plugin.refreshWeatherData();
+      this.plugin.requestWidgetRefresh();
     });
 
     apiInput.addEventListener("change", async () => {

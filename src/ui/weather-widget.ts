@@ -369,10 +369,10 @@ export class WeatherWidget {
     this.render();
   }
   update(): void {
-    if (!this.isMounted()) {
-      this.unmount();
+    if (!this.host) {
       return;
     }
+
     this.render();
   }
   unmount(): void {
@@ -383,7 +383,7 @@ export class WeatherWidget {
     this.host = null;
   }
   isMounted(): boolean {
-    return this.host != null && this.host.isConnected;
+    return this.host != null;
   }
   private render(): void {
     if (!this.host) {
