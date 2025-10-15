@@ -17,6 +17,7 @@ import { ensureHex, lerpColorGamma } from "./utils/color";
 import { DEFAULT_ALPHA_EASING_PROFILE, type AlphaEasingProfile } from "./utils/alpha-gradient";
 import { computeSolarAltitude } from "./utils/solar";
 import { buildSunOverlayState, computeGradientLayers } from "./utils/widget-render";
+import { resolveTimePhaseColor } from "./ui/weather-widget";
 import { createId } from "./utils/id";
 import { extractDateComponents, formatDateComponents, normalizeDateFormat } from "./utils/date-format";
 const LAT_MIN = -90;
@@ -44,6 +45,12 @@ const PREVIEW_TIME_EMOJIS: Record<TimeOfDayKey, string> = {
   night: "🌙",
 };
 const PREVIEW_FALLBACK_ICON = "☁";
+const minutesToIsoLocal = (minutes: number): string => {
+  const clamped = clamp(minutes, 0, MINUTES_IN_DAY - 1);
+  const hours = Math.floor(clamped / 60);
+  const mins = Math.round(clamped % 60);
+  return `2024-01-01T${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+};
 const ALPHA_PROFILE_OPTIONS: readonly AlphaEasingProfile[] = [
     "sineIn",
   "sineOut",
@@ -1282,10 +1289,22 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const dayEnd = clamp(dayStart + daySpan, 0, 1);
     const sunriseMinutes = dayStart * MINUTES_IN_DAY;
     const sunsetMinutes = dayEnd * MINUTES_IN_DAY;
+    const sunriseIso = minutesToIsoLocal(sunriseMinutes);
+    const sunsetIso = minutesToIsoLocal(sunsetMinutes);
     const categoryStyle = settings.categoryStyles[this.sampleWeatherCategory] ?? settings.categoryStyles.sunny;
     const weatherColor = ensureHex(categoryStyle.color, "#60a5fa");
     const temperatureColor = tempToColorSample(this.sampleTemperature, settings.temperatureGradient);
-    const baseColor = ensureHex(settings.timeBaseColors.day, "#87CEEB");
+    const timePhase = resolveTimePhaseColor(
+      settings,
+      sunriseIso,
+      sunsetIso,
+      null,
+      PREVIEW_TIMEZONE_OFFSET,
+      PREVIEW_LONGITUDE,
+      this.sampleTimeMinutes,
+    );
+    const derivedPhase = timePhase.phase ?? "day";
+    const baseColor = ensureHex(timePhase.color, settings.timeBaseColors[derivedPhase]);
     const gradientState = computeGradientLayers({
       settings,
       baseColor,
@@ -1327,14 +1346,25 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const sunsetSeconds = dayEnd * SECONDS_IN_DAY;
     const hours = Math.floor(clampedTime / 60);
     const minutes = clampedTime % 60;
-    const timeOfDay = this.getTimeOfDayFromMinutes(hours);
     const sunriseMinutesValue = dayStart * MINUTES_IN_DAY;
     const sunsetMinutesValue = dayEnd * MINUTES_IN_DAY;
+    const sunriseIso = minutesToIsoLocal(sunriseMinutesValue);
+    const sunsetIso = minutesToIsoLocal(sunsetMinutesValue);
+    const timePhase = resolveTimePhaseColor(
+      settings,
+      sunriseIso,
+      sunsetIso,
+      null,
+      PREVIEW_TIMEZONE_OFFSET,
+      PREVIEW_LONGITUDE,
+      clampedTime,
+    );
+    const derivedPhase = timePhase.phase ?? "day";
+    const baseColor = ensureHex(timePhase.color, settings.timeBaseColors[derivedPhase]);
     const sunPositionPercent = this.sunPositionPercent(sunriseSeconds, sunsetSeconds, localSeconds);
     const categoryStyle = this.plugin.settings.categoryStyles[this.sampleWeatherCategory] ?? this.plugin.settings.categoryStyles.sunny;
     const weatherColor = ensureHex(categoryStyle.color, "#6b7280");
     const temperatureColor = tempToColorSample(this.sampleTemperature, settings.temperatureGradient);
-    const baseColor = this.computePreviewBackgroundColor(localSeconds, sunriseSeconds, sunsetSeconds);
     const gradientState = computeGradientLayers({
       settings,
       baseColor,
@@ -1354,7 +1384,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         sunriseMinutes: sunriseMinutesValue,
         sunsetMinutes: sunsetMinutesValue,
         sunPositionPercent,
-        timeOfDay,
+        timeOfDay: derivedPhase,
         sunAltitudeDegrees: sunAltitude ?? undefined,
       });
       this.previewOverlay.style.background = overlayState.background;
@@ -1379,7 +1409,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     }
     const timeLabel = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     if (this.previewTimeIconEl) {
-      this.previewTimeIconEl.textContent = PREVIEW_TIME_EMOJIS[timeOfDay];
+      this.previewTimeIconEl.textContent = PREVIEW_TIME_EMOJIS[derivedPhase] ?? "";
     }
     if (this.previewTimeTextEl) {
       this.previewTimeTextEl.textContent = timeLabel;
@@ -1411,44 +1441,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
       this.previewTemperatureEl.textContent = temperatureLabel;
     }
   }
-  private getTimeOfDayFromMinutes(hour: number): TimeOfDayKey {
-    if (hour >= 6 && hour < 12) {
-      return 'morning';
-    }
-    if (hour >= 12 && hour < 18) {
-      return 'day';
-    }
-    if (hour >= 18 && hour < 22) {
-      return 'evening';
-    }
-    return 'night';
-  }
-  private computePreviewBackgroundColor(localSeconds: number, sunriseSeconds: number, sunsetSeconds: number): string {
-    const baseColors = this.plugin.settings.timeBaseColors;
-    const dayColor = ensureHex(baseColors.day, '#87CEEB');
-    const nightColor = ensureHex(baseColors.night, '#162331');
-    const morningColor = ensureHex(baseColors.morning, '#FF8C42');
-    const eveningColor = ensureHex(baseColors.evening, '#FF6B6B');
-    if (sunriseSeconds === 0 && sunsetSeconds === 0) {
-      return dayColor;
-    }
-    if (localSeconds < sunriseSeconds) {
-      return lerpColorGamma(nightColor, morningColor, normalize(localSeconds, 0, sunriseSeconds));
-    }
-    if (localSeconds >= sunriseSeconds && localSeconds <= sunriseSeconds + 3_600) {
-      return lerpColorGamma(morningColor, dayColor, normalize(localSeconds, sunriseSeconds, sunriseSeconds + 3_600));
-    }
-    if (localSeconds >= sunriseSeconds + 3_600 && localSeconds <= sunsetSeconds - 3_600) {
-      return dayColor;
-    }
-    if (localSeconds >= sunsetSeconds - 3_600 && localSeconds <= sunsetSeconds) {
-      return lerpColorGamma(dayColor, eveningColor, normalize(localSeconds, sunsetSeconds - 3_600, sunsetSeconds));
-    }
-    if (localSeconds > sunsetSeconds && localSeconds < SECONDS_IN_DAY) {
-      return lerpColorGamma(eveningColor, nightColor, normalize(localSeconds, sunsetSeconds, SECONDS_IN_DAY));
-    }
-    return nightColor;
-  }
   private sunPositionPercent(sunrise: number, sunset: number, localSeconds: number): number {
     if (sunrise >= sunset) {
       return 0;
@@ -1469,10 +1461,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
         ? sunLayer.dayHighlight
         : sunLayer.twilightHighlight;
     return Math.max(this.plugin.settings.leftPanel.minHighlight, highlight);
-  }
-  private getTimeOfDayFromSeconds(localSeconds: number, sunriseSeconds: number, sunsetSeconds: number): TimeOfDayKey {
-    const hour = Math.floor((localSeconds / 3600) % 24);
-    return this.getTimeOfDayFromMinutes(hour);
   }
   
   hide(): void {
@@ -1612,9 +1600,3 @@ export class WeatherSettingsTab extends PluginSettingTab {
     return setting;
   }
 }
-
-
-
-
-
-

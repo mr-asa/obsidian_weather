@@ -287,25 +287,44 @@ function sunPositionPercent(
   return ((minutesNow - sunrise) / (sunset - sunrise)) * 100;
 }
 
-function timeColorBySun(
+export interface TimePhaseColor {
+  color: TimePaletteColor;
+  phase: TimeOfDayKey;
+  nextPhase: TimeOfDayKey;
+  blend: number;
+}
+
+export function resolveTimePhaseColor(
   settings: WeatherWidgetSettings,
   sunriseIso: string | null,
   sunsetIso: string | null,
   timezone: string | null,
   timezoneOffsetMinutes: number | null,
   longitude: number,
-): TimePaletteColor {
+  nowMinutesOverride?: number,
+): TimePhaseColor {
   const sunriseMinutes = parseHmFromIsoLocal(sunriseIso);
   const sunsetMinutes = parseHmFromIsoLocal(sunsetIso);
-  const now = new Date();
-  const nowMinutes = timezone
-    ? minutesOfDayInTimezone(now, timezone)
-    : typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)
-      ? minutesOfDayWithOffset(now, timezoneOffsetMinutes)
-      : minutesOfDayAtLon(now, longitude);
+  let nowMinutes: number;
+  if (typeof nowMinutesOverride === "number" && Number.isFinite(nowMinutesOverride)) {
+    nowMinutes = clamp(nowMinutesOverride, 0, MINUTES_IN_DAY - 1);
+  } else {
+    const now = new Date();
+    nowMinutes = timezone
+      ? minutesOfDayInTimezone(now, timezone)
+      : typeof timezoneOffsetMinutes === "number" && Number.isFinite(timezoneOffsetMinutes)
+        ? minutesOfDayWithOffset(now, timezoneOffsetMinutes)
+        : minutesOfDayAtLon(now, longitude);
+  }
   if (sunriseMinutes == null || sunsetMinutes == null || sunsetMinutes <= sunriseMinutes) {
     const tod = getTimeOfDay(Math.floor(nowMinutes / 60));
-    return ensureHex(settings.timeBaseColors[tod]);
+    const base = ensureHex(settings.timeBaseColors[tod]);
+    return {
+      phase: tod,
+      nextPhase: tod,
+      blend: 0,
+      color: base,
+    };
   }
   const transitions = settings.timeColorTransitions ?? DEFAULT_SETTINGS.timeColorTransitions;
   const sunriseBefore = Math.max(0, transitions.sunrise.before);
@@ -320,45 +339,84 @@ function timeColorBySun(
     evening: ensureHex(settings.timeBaseColors.evening),
   };
 
-  const sunsetWindowStart = Math.max(0, sunsetMinutes - sunsetBefore);
-  const sunsetWindowEnd = Math.min(MINUTES_IN_DAY, sunsetMinutes + sunsetAfter);
-  const sunriseWindowEnd = sunriseMinutes + sunriseAfter;
-  const beforeSunriseDistance = (sunriseMinutes - nowMinutes + MINUTES_IN_DAY) % MINUTES_IN_DAY;
-
-  if (sunriseBefore > 0 && beforeSunriseDistance <= sunriseBefore) {
-    const window = Math.max(1, sunriseBefore);
-    const t = 1 - beforeSunriseDistance / window;
-    const eased = easeCos(t);
-    return lerpColorGamma(colors.night, colors.morning, eased);
+  const minutesAfterSunset = nowMinutes - sunsetMinutes;
+  if (minutesAfterSunset >= 0) {
+    if (sunsetAfter > 0 && minutesAfterSunset <= sunsetAfter) {
+      const span = Math.max(1, sunsetAfter);
+      const t = clamp01(minutesAfterSunset / span);
+      const eased = easeCos(t);
+      const dominant = eased < 0.5 ? "evening" : "night";
+      return {
+        phase: dominant,
+        nextPhase: "night",
+        blend: eased,
+        color: lerpColorGamma(colors.evening, colors.night, eased),
+      };
+    }
+    return {
+      phase: "night",
+      nextPhase: "night",
+      blend: 0,
+      color: colors.night,
+    };
   }
 
-  if (sunriseAfter > 0 && nowMinutes >= sunriseMinutes && nowMinutes <= sunriseWindowEnd) {
-    const window = Math.max(1, sunriseAfter);
-    const t = (nowMinutes - sunriseMinutes) / window;
-    const eased = easeCos(t);
-    return lerpColorGamma(colors.morning, colors.day, eased);
+  const minutesBeforeSunset = sunsetMinutes - nowMinutes;
+  if (sunsetBefore > 0 && minutesBeforeSunset <= sunsetBefore) {
+    const span = Math.max(1, sunsetBefore);
+    const normalized = clamp01(1 - minutesBeforeSunset / span);
+    const eased = easeCos(normalized);
+    const dominant = eased < 0.5 ? "day" : "evening";
+    return {
+      phase: dominant,
+      nextPhase: "evening",
+      blend: eased,
+      color: lerpColorGamma(colors.day, colors.evening, eased),
+    };
   }
 
-  if (sunsetBefore > 0 && nowMinutes >= sunsetWindowStart && nowMinutes < sunsetMinutes) {
-    const span = Math.max(1, sunsetMinutes - sunsetWindowStart);
-    const t = (nowMinutes - sunsetWindowStart) / span;
-    const eased = easeCos(t);
-    return lerpColorGamma(colors.day, colors.evening, eased);
+  const minutesAfterSunrise = nowMinutes - sunriseMinutes;
+  if (minutesAfterSunrise >= 0) {
+    if (sunriseAfter > 0 && minutesAfterSunrise <= sunriseAfter) {
+      const span = Math.max(1, sunriseAfter);
+      const t = clamp01(minutesAfterSunrise / span);
+      const eased = easeCos(t);
+      const dominant = eased < 0.5 ? "morning" : "day";
+      return {
+        phase: dominant,
+        nextPhase: "day",
+        blend: eased,
+        color: lerpColorGamma(colors.morning, colors.day, eased),
+      };
+    }
+    return {
+      phase: "day",
+      nextPhase: "day",
+      blend: 0,
+      color: colors.day,
+    };
   }
 
-  if (sunsetAfter > 0 && nowMinutes >= sunsetMinutes && nowMinutes <= sunsetWindowEnd) {
-    const span = Math.max(1, sunsetWindowEnd - sunsetMinutes);
-    const t = (nowMinutes - sunsetMinutes) / span;
-    const eased = easeCos(t);
-    return lerpColorGamma(colors.evening, colors.night, eased);
+  const minutesBeforeSunrise = sunriseMinutes - nowMinutes;
+  if (sunriseBefore > 0 && minutesBeforeSunrise <= sunriseBefore) {
+    const span = Math.max(1, sunriseBefore);
+    const normalized = clamp01(1 - minutesBeforeSunrise / span);
+    const eased = easeCos(normalized);
+    const dominant = eased < 0.5 ? "night" : "morning";
+    return {
+      phase: dominant,
+      nextPhase: "morning",
+      blend: eased,
+      color: lerpColorGamma(colors.night, colors.morning, eased),
+    };
   }
 
-  if (nowMinutes >= sunriseWindowEnd && nowMinutes < sunsetWindowStart) {
-    return colors.day;
-  }
-
-  const phase = getTimeOfDay(Math.floor(nowMinutes / 60));
-  return colors[phase] ?? colors.day;
+  return {
+    phase: "night",
+    nextPhase: "night",
+    blend: 0,
+    color: colors.night,
+  };
 }
 export interface WeatherWidgetOptions {
   inlineCities?: CityLocation[];
@@ -447,7 +505,6 @@ export class WeatherWidget {
       );
       const [hours] = localTime.split(":");
       const hourValue = Number.parseInt(hours ?? "0", 10);
-      const timeOfDay = getTimeOfDay(Number.isFinite(hourValue) ? hourValue : 0);
       const temperatureLabel = snapshot.temperature == null || Number.isNaN(snapshot.temperature)
         ? "--"
         : `${snapshot.temperature > 0 ? "+" : ""}${Math.round(snapshot.temperature)}°`;
@@ -459,9 +516,16 @@ export class WeatherWidget {
       const sunPosition = sunPositionPercent(snapshot.sunrise, snapshot.sunset, timezone, cityOffsetMinutes, city.longitude);
       const sunriseMinutes = parseHmFromIsoLocal(snapshot.sunrise);
       const sunsetMinutes = parseHmFromIsoLocal(snapshot.sunset);
-      const timeColor = timeColorBySun(settings, snapshot.sunrise, snapshot.sunset, timezone, cityOffsetMinutes, city.longitude);
-      const baseFallback = ensureHex(settings.timeBaseColors[timeOfDay]);
-      const baseColor = lerpColorGamma(baseFallback, timeColor, 0.6);
+      const timePhase = resolveTimePhaseColor(
+        settings,
+        snapshot.sunrise,
+        snapshot.sunset,
+        timezone,
+        cityOffsetMinutes,
+        city.longitude,
+      );
+      const derivedPhase = timePhase.phase ?? getTimeOfDay(Number.isFinite(hourValue) ? hourValue : 0);
+      const baseColor = ensureHex(timePhase.color, settings.timeBaseColors[derivedPhase]);
       const temperatureColor = tempToColor(snapshot.temperature, settings.temperatureGradient);
       const gradientState = computeGradientLayers({
         settings,
@@ -494,7 +558,7 @@ export class WeatherWidget {
         sunriseMinutes,
         sunsetMinutes,
         sunPositionPercent: sunPosition,
-        timeOfDay,
+        timeOfDay: derivedPhase,
         sunAltitudeDegrees: sunAltitude ?? undefined,
       });
       overlay.style.background = overlayState.background;
@@ -524,7 +588,7 @@ export class WeatherWidget {
       nameEl.textContent = city.label || "-";
       const rightGroup = row.createDiv({ cls: "city-row__group city-row__group--right" });
       const timeInfo = rightGroup.createDiv({ cls: "time-info" });
-      timeInfo.createSpan({ text: TIME_EMOJIS[timeOfDay] ?? "" });
+      timeInfo.createSpan({ text: TIME_EMOJIS[derivedPhase] ?? "" });
       timeInfo.createSpan({ text: localTime });
       if (settings.showDateWhenDifferent && cityDate.key !== viewerDateKey) {
         timeInfo.createSpan({ cls: "date", text: cityDate.label });

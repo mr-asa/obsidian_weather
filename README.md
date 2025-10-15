@@ -1,5 +1,6 @@
 # Weather Widget for Obsidian
 
+The main purpose of creating the plugin is to quickly visually identify the main comparative data between different coordinates where friends or relatives live.\
 Weather Widget brings a live multi-city forecast directly into your Obsidian workspace with a richly themed row layout that mirrors your vault aesthetics. The plugin renders identical widgets in the right sidebar view, Markdown notes, and Canvas, and exposes deep styling controls so you can tune gradients, icons, and sun overlays to match your setup. You can also inject one-off cities right inside the Markdown block without touching the global list.
 
 ## Key Features
