@@ -18,6 +18,7 @@ import type { WeatherWidget } from "./ui/weather-widget";
 import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
 import type { LocaleCode } from "./i18n/types";
 import { createId } from "./utils/id";
+import { mergeCityLists } from "./utils/city";
 import { WeatherService, type WeatherSnapshot } from "./services/weather-service";
 export default class WeatherPlugin extends Plugin {
   settings: WeatherWidgetSettings;
@@ -99,9 +100,11 @@ export default class WeatherPlugin extends Plugin {
   }
   registerWidget(widget: WeatherWidget): void {
         this.widgetInstances.add(widget);
+    void this.refreshInlineCities(widget.getInlineCities());
   }
   unregisterWidget(widget: WeatherWidget): void {
         this.widgetInstances.delete(widget);
+    void this.refreshWeatherData();
   }
   requestWidgetRefresh(): void {
     for (const widget of Array.from(this.widgetInstances)) {
@@ -113,6 +116,47 @@ export default class WeatherPlugin extends Plugin {
       } catch (error) {
         console.error("WeatherPlugin: failed to update widget", error);
       }
+    }
+  }
+  private collectInlineCities(): CityLocation[] {
+    const combined: CityLocation[] = [];
+    for (const widget of this.widgetInstances) {
+      const inline = widget.getInlineCities();
+      if (inline.length > 0) {
+        combined.push(...inline);
+      }
+    }
+    return combined;
+  }
+  private async refreshInlineCities(cities: CityLocation[]): Promise<void> {
+    if (!cities || cities.length === 0) {
+      return;
+    }
+    const uniqueMap = new Map<string, CityLocation>();
+    for (const city of cities) {
+      if (city && typeof city.id === "string" && !uniqueMap.has(city.id)) {
+        uniqueMap.set(city.id, { ...city });
+      }
+    }
+    if (uniqueMap.size === 0) {
+      return;
+    }
+    const refreshResults = await Promise.all(
+      Array.from(uniqueMap.values()).map(async (city) => {
+        try {
+          const snapshot = await this.weatherService.refreshCity(city, this.settings.weatherCacheMinutes);
+          if (snapshot) {
+            this.weatherData.set(city.id, snapshot);
+            return true;
+          }
+        } catch (error) {
+          console.error("WeatherPlugin: failed to refresh inline city", city.label ?? city.id, error);
+        }
+        return false;
+      }),
+    );
+    if (refreshResults.some((value) => value)) {
+      this.requestWidgetRefresh();
     }
   }
   private refreshWeatherDataInBackground(): void {
@@ -519,13 +563,14 @@ export default class WeatherPlugin extends Plugin {
   
   
   async refreshWeatherData(): Promise<boolean> {
-        if (this.settings.cities.length === 0) {
+        const inlineCities = this.collectInlineCities();
+    const cities = mergeCityLists(this.settings.cities, inlineCities);
+    if (cities.length === 0) {
             const hadData = this.weatherData.size > 0;
       this.weatherData.clear();
       return hadData;
     }
     let updated = false;
-    const cities = [...this.settings.cities];
     const activeCityIds = new Set<string>(cities.map((city) => city.id));
     const refreshResults = await Promise.all(
             cities.map(async (city) => {

@@ -5,10 +5,12 @@ import {
   type WeatherCategory,
   type WeatherWidgetSettings,
   type TimeOfDayKey,
+  type CityLocation,
 } from "../settings";
 import { clamp } from "../utils/math";
 import { ensureHex, lerpColorGamma } from "../utils/color";
 import { buildSunOverlayState, computeGradientLayers } from "../utils/widget-render";
+import { mergeCityLists } from "../utils/city";
 import { computeSolarAltitude, timezoneOffsetFromIdentifier } from "../utils/solar";
 import {
   createDateKey,
@@ -358,10 +360,19 @@ function timeColorBySun(
   const phase = getTimeOfDay(Math.floor(nowMinutes / 60));
   return colors[phase] ?? colors.day;
 }
+export interface WeatherWidgetOptions {
+  inlineCities?: CityLocation[];
+}
+
 export class WeatherWidget {
   private host: HTMLElement | null = null;
   private isRegistered = false;
-  constructor(private readonly plugin: WeatherPlugin) {}
+  private readonly inlineCities: CityLocation[];
+  constructor(private readonly plugin: WeatherPlugin, options: WeatherWidgetOptions = {}) {
+    this.inlineCities = Array.isArray(options.inlineCities)
+      ? options.inlineCities.map((city) => ({ ...city }))
+      : [];
+  }
   mount(containerEl: HTMLElement): void {
     if (this.host !== containerEl) {
       this.unmount();
@@ -390,6 +401,9 @@ export class WeatherWidget {
   isMounted(): boolean {
     return this.host != null;
   }
+  getInlineCities(): CityLocation[] {
+    return this.inlineCities.map((city) => ({ ...city }));
+  }
   private render(): void {
     if (!this.host) {
       return;
@@ -398,7 +412,8 @@ export class WeatherWidget {
     const settings = this.plugin.settings;
     const locale = this.plugin.getLocale();
     this.host.replaceChildren();
-    if (settings.cities.length === 0) {
+    const activeCities = mergeCityLists(settings.cities, this.inlineCities);
+    if (activeCities.length === 0) {
       this.host.createDiv({ cls: "city-widget city-widget--empty", text: strings.widget.forecastPlaceholder });
       return;
     }
@@ -407,7 +422,7 @@ export class WeatherWidget {
     const viewerDateComponents = extractDateComponents(viewerNow);
     const viewerDateKey = createDateKey(viewerDateComponents);
     const container = this.host.createDiv({ cls: "city-widget" });
-    for (const city of settings.cities) {
+    for (const city of activeCities) {
       const snapshot = this.plugin.getWeatherSnapshot(city.id);
       if (!snapshot) {
         const pendingRow = container.createDiv({ cls: "city-row city-row--loading" });

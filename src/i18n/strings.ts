@@ -1,4 +1,4 @@
-﻿import { DEFAULT_LOCALE, type LocaleCode } from "./types";
+import { DEFAULT_LOCALE, type LocaleCode } from "./types";
 import type { TimeOfDayKey, WeatherCategory } from "../settings";
 import type { MonthNameSet } from "../utils/date-format";
 
@@ -680,3 +680,4 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
 export function getLocaleStrings(locale: LocaleCode): LocaleStrings {
   return LOCALE_STRINGS[locale] ?? LOCALE_STRINGS[DEFAULT_LOCALE];
 }
+
