@@ -3,7 +3,7 @@
   "name": "Weather Widget",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Базовый виджет погоды для отображения в заметках, Canvas и отдельной вкладке.",
+  "description": "Weather widget for display in notes, Canvas, and a separate tab.",
   "author": "mr-asa",
   "fundingUrl": "https://buymeacoffee.com/mr.asa",
   "isDesktopOnly": false
