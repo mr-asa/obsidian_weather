@@ -240,9 +240,6 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const nightColor = ensureHex(sunLayer.colors.night, "#0f172a");
 
   let sunColor = dayColor;
-  let alphaPeak = sunLayer.alphaDay.peak;
-  let alphaMid = sunLayer.alphaDay.mid;
-  let alphaLow = sunLayer.alphaDay.low;
 
   const transitions = sunLayer.transitions ?? DEFAULT_SETTINGS.sunLayer.transitions;
   const sunriseBefore = Math.max(0, transitions.sunrise.before);
@@ -270,55 +267,34 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
       const t = window === 0 ? 1 : 1 - (sunsetMinutes - nowMinutes) / window;
       const eased = 0.5 - 0.5 * Math.cos(Math.PI * clamp01(t));
       sunColor = lerpColorGamma(dayColor, sunsetColor, eased);
-      alphaPeak = sunLayer.alphaDay.peak;
-      alphaMid = sunLayer.alphaDay.mid;
-      alphaLow = sunLayer.alphaDay.low;
     } else if (nowMinutes >= sunsetMinutes && nowMinutes <= sunsetWindowEnd) {
       const window = Math.max(1, sunsetAfter);
       const t = window === 0 ? 1 : (nowMinutes - sunsetMinutes) / window;
       const eased = 0.5 - 0.5 * Math.cos(Math.PI * clamp01(t));
       sunColor = lerpColorGamma(sunsetColor, nightColor, eased);
-      alphaPeak = lerp(sunLayer.alphaDay.peak, sunLayer.alphaNight.peak, eased);
-      alphaMid = lerp(sunLayer.alphaDay.mid, sunLayer.alphaNight.mid, eased);
-      alphaLow = lerp(sunLayer.alphaDay.low, sunLayer.alphaNight.low, eased);
     } else if (beforeSunriseDistance <= sunriseBefore) {
       const window = Math.max(1, sunriseBefore);
       const t = window === 0 ? 1 : 1 - beforeSunriseDistance / window;
       const eased = 0.5 - 0.5 * Math.cos(Math.PI * clamp01(t));
       sunColor = lerpColorGamma(nightColor, sunriseColor, eased);
-      alphaPeak = lerp(sunLayer.alphaNight.peak, sunLayer.alphaDay.peak, eased);
-      alphaMid = lerp(sunLayer.alphaNight.mid, sunLayer.alphaDay.mid, eased);
-      alphaLow = lerp(sunLayer.alphaNight.low, sunLayer.alphaDay.low, eased);
     } else if (sunriseAfter > 0 && nowMinutes >= sunriseMinutes && nowMinutes <= sunriseWindowEnd) {
       const window = Math.max(1, sunriseAfter);
       const t = window === 0 ? 1 : (nowMinutes - sunriseMinutes) / window;
       const eased = 0.5 - 0.5 * Math.cos(Math.PI * clamp01(t));
       sunColor = lerpColorGamma(sunriseColor, dayColor, eased);
-      alphaPeak = sunLayer.alphaDay.peak;
-      alphaMid = sunLayer.alphaDay.mid;
-      alphaLow = sunLayer.alphaDay.low;
     } else if (isNight) {
       sunColor = nightColor;
-      alphaPeak = sunLayer.alphaNight.peak;
-      alphaMid = sunLayer.alphaNight.mid;
-      alphaLow = sunLayer.alphaNight.low;
     } else {
       sunColor = dayColor;
-      alphaPeak = sunLayer.alphaDay.peak;
-      alphaMid = sunLayer.alphaDay.mid;
-      alphaLow = sunLayer.alphaDay.low;
     }
   } else if (isNight) {
     sunColor = nightColor;
-    alphaPeak = sunLayer.alphaNight.peak;
-    alphaMid = sunLayer.alphaNight.mid;
-    alphaLow = sunLayer.alphaNight.low;
   }
 
   const opacityScale = clamp01(sunLayer.gradientOpacity);
-  alphaPeak = clamp01(alphaPeak * opacityScale);
-  alphaMid = clamp01(alphaMid * opacityScale);
-  alphaLow = clamp01(alphaLow * opacityScale);
+  const alphaPeak = clamp01(sunLayer.alphaDay.peak * opacityScale);
+  const alphaMid = clamp01(sunLayer.alphaDay.mid * opacityScale);
+  const alphaLow = clamp01(sunLayer.alphaDay.low * opacityScale);
 
   const rawCenter = input.sunPositionPercent;
   const centerFraction = Number.isFinite(rawCenter)
@@ -385,13 +361,13 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const altitudeFromInput = typeof input.sunAltitudeDegrees === "number" && Number.isFinite(input.sunAltitudeDegrees)
     ? input.sunAltitudeDegrees
     : null;
-  const computedAltitudeRatio = altitudeFromInput != null
-    ? altitudeFromInput / 90
-    : Math.sin(Math.PI * sunProgress);
-  const altitudeRatio = Number.isFinite(computedAltitudeRatio)
-    ? clamp01(computedAltitudeRatio)
-    : 0;
-  const iconVerticalProgress = altitudeRatio;
+  const fallbackAltitude = Math.max(0, Math.sin(Math.PI * sunProgress) * 90);
+  const resolvedAltitude = Number.isFinite(altitudeFromInput)
+    ? Math.max(0, altitudeFromInput as number)
+    : fallbackAltitude;
+  const iconVerticalProgress = resolvedAltitude <= 0
+    ? 0
+    : clamp(resolvedAltitude / 90, 0, 1);
   const iconTop = clamp((1 - iconVerticalProgress) * 100, -10, 110);
   const gradientCenterBase = effectiveStart + effectiveSpan / 2;
   const gradientCenterFraction = Number.isFinite(gradientCenterBase)

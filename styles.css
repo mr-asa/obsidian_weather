@@ -110,6 +110,7 @@
   transform: translate(-50%, -50%);
   font-size: 1.4rem;
   line-height: 1;
+  white-space: nowrap;
   pointer-events: none;
   transition: transform 0.3s ease, top 0.3s ease, left 0.3s ease, opacity 0.3s ease;
   will-change: transform, top, left;

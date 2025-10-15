@@ -18,12 +18,7 @@ import { DEFAULT_ALPHA_EASING_PROFILE, type AlphaEasingProfile } from "./utils/a
 import { computeSolarAltitude } from "./utils/solar";
 import { buildSunOverlayState, computeGradientLayers } from "./utils/widget-render";
 import { createId } from "./utils/id";
-import {
-  createDateKey,
-  extractDateComponents,
-  formatDateComponents,
-  normalizeDateFormat,
-} from "./utils/date-format";
+import { extractDateComponents, formatDateComponents, normalizeDateFormat } from "./utils/date-format";
 const LAT_MIN = -90;
 const LAT_MAX = 90;
 const LON_MIN = -180;
@@ -1374,7 +1369,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       if (this.previewSunIconEl) {
         this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.plugin.settings.sunLayer.icon.monospaced));
         this.previewSunIconEl.textContent = overlayState.icon.symbol;
-        this.previewSunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
+      this.previewSunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
         this.previewSunIconEl.style.top = `${overlayState.icon.topPercent}%`;
         this.previewSunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
         this.previewSunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
@@ -1392,15 +1387,14 @@ export class WeatherSettingsTab extends PluginSettingTab {
     if (this.previewDateEl) {
       const dateFormat = normalizeDateFormat(this.plugin.settings.dateFormat, DEFAULT_SETTINGS.dateFormat);
       const cityDateComponents = extractDateComponents(previewLocalDate);
-      const viewerDateComponents = extractDateComponents(previewDate);
-      const shouldShowDate = this.plugin.settings.showDateWhenDifferent
-        && createDateKey(cityDateComponents) !== createDateKey(viewerDateComponents);
-      this.previewDateEl.textContent = formatDateComponents(
+      const dateLabel = formatDateComponents(
         cityDateComponents,
         dateFormat,
         DEFAULT_SETTINGS.dateFormat,
         strings.date.monthNames,
       );
+      const shouldShowDate = this.plugin.settings.showDateWhenDifferent;
+      this.previewDateEl.textContent = shouldShowDate ? dateLabel : "";
       this.previewDateEl.classList.toggle("is-hidden", !shouldShowDate);
       this.previewDateEl.style.opacity = shouldShowDate ? "0.6" : "0";
     }

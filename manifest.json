@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
   "description": "Базовый виджет погоды для отображения в заметках, Canvas и отдельной вкладке.",
-  "author": "",
+  "author": "mr-asa",
+  "fundingUrl": "https://buymeacoffee.com/mr.asa",
   "isDesktopOnly": false
 }
