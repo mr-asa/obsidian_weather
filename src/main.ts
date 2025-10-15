@@ -58,10 +58,10 @@ export default class WeatherPlugin extends Plugin {
     registerCommands(this, this.canvasBridge);
     registerMarkdownWeatherWidget(this);
     this.addSettingTab(new WeatherSettingsTab(this.app, this));
-    await this.refreshWeatherData();
     this.requestWidgetRefresh();
     this.scheduleWeatherRefresh();
     this.scheduleWidgetMinuteUpdates();
+    this.refreshWeatherDataInBackground();
   }
   onunload(): void {
     this.app.workspace.detachLeavesOfType(WEATHER_WIDGET_VIEW_TYPE);
@@ -114,6 +114,18 @@ export default class WeatherPlugin extends Plugin {
         console.error("WeatherPlugin: failed to update widget", error);
       }
     }
+  }
+  private refreshWeatherDataInBackground(): void {
+    void (async () => {
+      try {
+        const updated = await this.refreshWeatherData();
+        if (updated) {
+          this.requestWidgetRefresh();
+        }
+      } catch (error) {
+        console.error("WeatherPlugin: initial weather refresh failed", error);
+      }
+    })();
   }
   private unregisterExistingViewType(): void {
     const workspace = this.app.workspace as unknown as {
@@ -513,11 +525,25 @@ export default class WeatherPlugin extends Plugin {
       return hadData;
     }
     let updated = false;
-    const activeCityIds = new Set<string>();
-    for (const city of this.settings.cities) {
-            activeCityIds.add(city.id);
-      const snapshot = await this.weatherService.refreshCity(city, this.settings.weatherCacheMinutes);
-      if (snapshot) {
+    const cities = [...this.settings.cities];
+    const activeCityIds = new Set<string>(cities.map((city) => city.id));
+    const refreshResults = await Promise.all(
+            cities.map(async (city) => {
+        try {
+          const snapshot = await this.weatherService.refreshCity(city, this.settings.weatherCacheMinutes);
+          return { city, snapshot };
+        } catch (error) {
+          console.error(
+            "WeatherPlugin: unexpected error refreshing weather data for city",
+            city.label ?? city.id,
+            error,
+          );
+          return { city, snapshot: null };
+        }
+      }),
+    );
+    for (const { city, snapshot } of refreshResults) {
+            if (snapshot) {
                 this.weatherData.set(city.id, snapshot);
         updated = true;
       } else if (this.weatherData.delete(city.id)) {
