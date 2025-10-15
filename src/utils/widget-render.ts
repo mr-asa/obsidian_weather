@@ -70,7 +70,9 @@ export function buildAlphaGradientLayer(
   const clampedScale = clamp01(scale);
 
   const stops: string[] = [];
-  const formatPct = (value: number) => `${Math.round(value * 10000) / 100}%`;
+  const formatPct = (value: number) => {
+    return `${(value * 100).toFixed(4)}%`;
+  };
 
   const applyTransform = (baseAlpha: number, position: number) => {
     const clamped = clamp01(baseAlpha * clampedScale);
@@ -80,7 +82,12 @@ export function buildAlphaGradientLayer(
   const startAlpha = applyTransform(curve.sample(normalizedStart), domainStart);
   const endAlpha = applyTransform(curve.sample(normalizedEnd), domainEnd);
 
+  let lastPosition = -1;
   const pushStop = (position: number, alpha: number) => {
+    if (Math.abs(position - lastPosition) <= 1e-6) {
+      return;
+    }
+    lastPosition = position;
     stops.push(`${rgba(color, clamp01(alpha))} ${formatPct(position)}`);
   };
 
@@ -90,7 +97,7 @@ export function buildAlphaGradientLayer(
 
   pushStop(domainStart, startAlpha);
 
-  const sampleSteps = Math.max(32, Math.round(visibleRange * 256));
+  const sampleSteps = Math.max(128, Math.round(visibleRange * 1024));
   for (let i = 1; i < sampleSteps; i += 1) {
     const t = i / sampleSteps;
     const curveT = normalizedStart + (normalizedEnd - normalizedStart) * t;
