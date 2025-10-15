@@ -314,19 +314,43 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const effectiveStart = Math.min(startFrac, endFrac);
   const effectiveEnd = Math.max(startFrac, endFrac);
   const effectiveSpan = Math.max(1e-6, effectiveEnd - effectiveStart);
+  const segments = sunCurve.segments;
+  const hasLeftFade = segments.leftWidth > 1e-6;
+  const hasRightFade = segments.rightWidth > 1e-6;
+  // When the configured opaque ratio eliminates both edge fades, render a flat fill.
+  const treatAsSolidFill = !hasLeftFade && !hasRightFade;
+  const leftBoundary = segments.leftWidth;
+  const rightBoundary = 1 - segments.rightWidth;
+  const quadratic = (start: number, control: number, end: number, t: number) => {
+    const clamped = clamp01(t);
+    const inv = 1 - clamped;
+    return (inv * inv * start) + (2 * inv * clamped * control) + (clamped * clamped * end);
+  };
+  const fadeBlend = (from: number, mid: number, to: number, t: number) => {
+    return quadratic(from, mid, to, t);
+  };
 
   const bezierTransform = (baseAlpha: number, position: number) => {
     if (baseAlpha <= 0) {
       return 0;
     }
-    const normalized = clamp01((position - effectiveStart) / effectiveSpan);
-    const distanceFromCenter = Math.abs(normalized - 0.5) * 2;
-    const centerT = clamp01(1 - distanceFromCenter);
-    const oneMinusCenter = 1 - centerT;
-    const bezier = (oneMinusCenter * oneMinusCenter * alphaLow)
-      + (2 * oneMinusCenter * centerT * alphaMid)
-      + (centerT * centerT * alphaPeak);
-    return clamp01(baseAlpha * bezier);
+    if (treatAsSolidFill) {
+      return clamp01(baseAlpha * alphaPeak);
+    }
+    const gradientT = clamp01((position - effectiveStart) / Math.max(effectiveSpan, 1e-6));
+    if (hasLeftFade && gradientT < leftBoundary) {
+      const fadeSpan = Math.max(leftBoundary, 1e-6);
+      const fadeT = clamp01(gradientT / fadeSpan);
+      const envelope = fadeBlend(alphaLow, alphaMid, alphaPeak, fadeT);
+      return clamp01(baseAlpha * envelope);
+    }
+    if (hasRightFade && gradientT > rightBoundary) {
+      const fadeSpan = Math.max(segments.rightWidth, 1e-6);
+      const fadeT = clamp01((gradientT - rightBoundary) / fadeSpan);
+      const envelope = fadeBlend(alphaPeak, alphaMid, alphaLow, fadeT);
+      return clamp01(baseAlpha * envelope);
+    }
+    return clamp01(baseAlpha * alphaPeak);
   };
 
   const sunGradient = buildAlphaGradientLayer(
