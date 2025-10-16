@@ -110,13 +110,15 @@ row-height: 24
 
 ### Locations
 - Maintain the global city list. Every row lets you set name, latitude, longitude, re-ordering, or deletion.
-  > [!note]
-  > Any characters and languages are accepted. Custom display names make it easy to compare “Summit”, “Beach house”, or any personal label. For example, I track a nearby mountain and the city below; naming the exact coordinates through standard providers is tricky, so custom names help.
+
+> [!note]
+> Any characters and languages are accepted. Custom display names make it easy to compare “Summit”, “Beach house”, or any personal label. For example, I track a nearby mountain and the city below; naming the exact coordinates through standard providers is tricky, so custom names help.
 
 ### Preview playground
 - The preview widget mirrors the real component. Sliders simulate local time and temperature, the dropdown swaps weather categories.
-  > [!note]
-  > Use ←/→ or ↑/↓ to nudge slider values one step at a time.
+
+> [!note]
+> Use ←/→ or ↑/↓ to nudge slider values one step at a time.
 
 ### Time-of-day palette
 - Choose base colors for morning, day, evening, and night.
@@ -125,9 +127,12 @@ row-height: 24
 ### Sun layer
 - Customize colors for day/night/sunrise/sunset and the symbol used for the sun.
 - Select an alpha curve profile to control how the sun gradient fades in/out.
+
 <img src="assets/sun_gradients.png" alt="sun gradients" width="100%">
+
 - Configure gradient width, opaque core, opacity multiplier, overflow, and icon behaviour (regular vs monospaced font).
 - Tune sunrise/sunset transition windows similar to the time-of-day palette.
+
 > [!note]
 >I introduced the sun symbol to represent the height of the sun above the horizon.
 You can choose any text character or combination of characters for the sun icon.
@@ -152,8 +157,9 @@ You can also disable the icon entirely, leaving only the color accent.
 
 ### Additional options
 - **Edge gradient width** – global scaling factor for weather and temperature layers. Use smaller values when you prefer solid day/night backgrounds.
-  > [!note]
-  > Weather and temperature transitions can differ in perceived width for each city. This is deliberate: daylight length is reflected in the gradient span. Compressing both layers to the same width would hide that variance.
+
+> [!note]
+> Weather and temperature transitions can differ in perceived width for each city. This is deliberate: daylight length is reflected in the gradient span. Compressing both layers to the same width would hide that variance.
 
 - **Row height limits** – define minimum and maximum heights. Widgets respect these bounds when a block or setting requests a taller/shorter row.
 
