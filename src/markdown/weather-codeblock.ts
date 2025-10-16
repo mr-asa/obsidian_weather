@@ -87,23 +87,23 @@ export function registerMarkdownWeatherWidget(plugin: WeatherPlugin): void {
     })(element, widget));
 
     const trimmedSource = source.trim();
-    const debugLines: string[] = [];
-    if (trimmedSource.length > 0) {
-      const prefix = plugin.getStrings().markdown.debugParameters;
-      const effectivePrefix = prefix.includes("TODO") ? "Inline cities:\n" : prefix;
-      debugLines.push(`${effectivePrefix}${trimmedSource}`);
-    }
-    if (parsed.rowHeight != null && Number.isFinite(parsed.rowHeight)) {
-      debugLines.push(`Row height: ${parsed.rowHeight}px`);
-    }
     if (parsed.errors.length > 0) {
+      const debugLines: string[] = [];
+      if (trimmedSource.length > 0) {
+        const prefix = plugin.getStrings().markdown.debugParameters;
+        const effectivePrefix = prefix.includes("TODO") ? "Inline cities:\n" : prefix;
+        debugLines.push(`${effectivePrefix}${trimmedSource}`);
+      }
+      if (parsed.rowHeight != null && Number.isFinite(parsed.rowHeight)) {
+        debugLines.push(`Row height: ${parsed.rowHeight}px`);
+      }
       debugLines.push(...parsed.errors);
-    }
-    if (debugLines.length > 0) {
-      element.createEl("pre", {
-        cls: "weather-widget__debug",
-        text: debugLines.join("\n"),
-      });
+      if (debugLines.length > 0) {
+        element.createEl("pre", {
+          cls: "weather-widget__debug",
+          text: debugLines.join("\n"),
+        });
+      }
     }
   });
 }
