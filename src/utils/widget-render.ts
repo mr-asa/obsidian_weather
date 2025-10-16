@@ -31,10 +31,20 @@ export function buildAlphaGradientLayer(
   endFrac: number,
   scale = 1,
   transform?: (value: number, position: number) => number,
-  options: { clampToUnit?: boolean; includeUnitStops?: boolean } = {},
+  options: {
+    clampToUnit?: boolean;
+    includeUnitStops?: boolean;
+    remapCurveT?: (position: number, curveT: number) => number;
+    hardOpaqueRange?: {
+      start: number;
+      end: number;
+      alpha?: number;
+    };
+  } = {},
 ): string {
   const clampToUnit = options.clampToUnit ?? true;
   const includeUnitStops = options.includeUnitStops ?? false;
+  const remapCurveT = options.remapCurveT;
   const zero = rgba(color, 0);
 
   const rawStart = Math.min(startFrac, endFrac);
@@ -71,16 +81,44 @@ export function buildAlphaGradientLayer(
 
   const stops: string[] = [];
   const formatPct = (value: number) => {
-    return `${(value * 100).toFixed(4)}%`;
+    return `${(value * 100).toFixed(6)}%`;
   };
+
+  const sampleCurve = (curveT: number, position: number): number => {
+    const remapped = remapCurveT ? clamp01(remapCurveT(position, curveT)) : curveT;
+    return curve.sample(remapped);
+  };
+
+  const hardRange = options.hardOpaqueRange;
+  let hardRangeStart = 0;
+  let hardRangeEnd = 0;
+  let hardRangeAlpha = 1;
+  let enforceHardRange = false;
+
+  if (hardRange) {
+    const rawRangeStart = clampToUnit ? clamp01(hardRange.start) : hardRange.start;
+    const rawRangeEnd = clampToUnit ? clamp01(hardRange.end) : hardRange.end;
+    const resolvedStart = Math.max(domainStart, Math.min(domainEnd, rawRangeStart));
+    const resolvedEnd = Math.max(resolvedStart, Math.min(domainEnd, rawRangeEnd));
+    if (resolvedEnd - resolvedStart > 1e-6) {
+      hardRangeStart = resolvedStart;
+      hardRangeEnd = resolvedEnd;
+      hardRangeAlpha = clamp01(hardRange.alpha ?? 1);
+      enforceHardRange = true;
+    }
+  }
 
   const applyTransform = (baseAlpha: number, position: number) => {
     const clamped = clamp01(baseAlpha * clampedScale);
-    return typeof transform === "function" ? transform(clamped, position) : clamped;
+    const transformed = typeof transform === "function" ? transform(clamped, position) : clamped;
+    if (enforceHardRange && position >= hardRangeStart && position <= hardRangeEnd) {
+      return hardRangeAlpha;
+    }
+    return transformed;
   };
 
-  const startAlpha = applyTransform(curve.sample(normalizedStart), domainStart);
-  const endAlpha = applyTransform(curve.sample(normalizedEnd), domainEnd);
+  const startAlpha = applyTransform(sampleCurve(normalizedStart, domainStart), domainStart);
+  const endAlpha = applyTransform(sampleCurve(normalizedEnd, domainEnd), domainEnd);
 
   let lastPosition = -1;
   const pushStop = (position: number, alpha: number) => {
@@ -97,16 +135,49 @@ export function buildAlphaGradientLayer(
 
   pushStop(domainStart, startAlpha);
 
-  const sampleSteps = Math.max(128, Math.round(visibleRange * 1024));
+  let hardStartInserted = !enforceHardRange || hardRangeStart <= domainStart + 1e-6;
+  let hardEndInserted = !enforceHardRange || hardRangeEnd <= domainStart + 1e-6;
+  if (enforceHardRange && !hardStartInserted && domainStart >= hardRangeStart - 1e-6) {
+    pushStop(hardRangeStart, hardRangeAlpha);
+    hardStartInserted = true;
+  }
+  if (enforceHardRange && !hardEndInserted && domainStart >= hardRangeEnd - 1e-6) {
+    pushStop(hardRangeEnd, hardRangeAlpha);
+    hardEndInserted = true;
+  }
+
+  const sampleSteps = Math.max(64, Math.min(256, Math.round(visibleRange * 512)));
   for (let i = 1; i < sampleSteps; i += 1) {
     const t = i / sampleSteps;
     const curveT = normalizedStart + (normalizedEnd - normalizedStart) * t;
     const position = domainStart + visibleRange * t;
-    const alpha = applyTransform(curve.sample(curveT), position);
+    if (enforceHardRange) {
+      if (!hardStartInserted && position >= hardRangeStart - 1e-6) {
+        pushStop(hardRangeStart, hardRangeAlpha);
+        hardStartInserted = true;
+      }
+      if (!hardEndInserted && position >= hardRangeEnd - 1e-6) {
+        if (!hardStartInserted) {
+          pushStop(hardRangeStart, hardRangeAlpha);
+          hardStartInserted = true;
+        }
+        pushStop(hardRangeEnd, hardRangeAlpha);
+        hardEndInserted = true;
+      }
+    }
+    const alpha = applyTransform(sampleCurve(curveT, position), position);
     pushStop(position, alpha);
   }
 
   pushStop(domainEnd, endAlpha);
+
+  if (enforceHardRange && !hardStartInserted) {
+    pushStop(hardRangeStart, hardRangeAlpha);
+    hardStartInserted = true;
+  }
+  if (enforceHardRange && !hardEndInserted) {
+    pushStop(hardRangeEnd, hardRangeAlpha);
+  }
 
   if (domainEnd < 1) {
     pushStop(domainEnd, 0);
@@ -215,7 +286,7 @@ export interface SunOverlayState {
   blendMode: string;
   icon: SunOverlayIconState;
   widthPercent: number;
-  offsetPercent: number;
+  leftPercent: number;
 }
 
 export interface SunOverlayInput {
@@ -226,6 +297,7 @@ export interface SunOverlayInput {
   sunPositionPercent: number;
   timeOfDay: TimeOfDayKey;
   sunAltitudeDegrees?: number | null;
+  rowWidthPx?: number;
 }
 
 export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
@@ -235,11 +307,14 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const gradientWidthPercent = typeof sunLayer.gradientWidthPercent === "number"
     ? sunLayer.gradientWidthPercent
     : sunLayer.width * 2;
-  const sunHalfWidthPercent = clamp(gradientWidthPercent / 2, 0, 50);
-  const sunHalfWidth = sunHalfWidthPercent / 100;
+  const gradientWidthFraction = clamp(gradientWidthPercent / 100, 0, 1);
   const overflowFraction = clamp(sunLayer.gradientOverflowPercent ?? 50, 0, 200) / 100;
-  const scaleFactor = 1 + overflowFraction * 2;
-  const offsetFraction = overflowFraction;
+  const scaleFactor = Math.max(1, 1 + overflowFraction * 2);
+  const overlayWidthPercent = scaleFactor * 100;
+  const rowWidthPx = typeof input.rowWidthPx === "number" && Number.isFinite(input.rowWidthPx) && input.rowWidthPx > 0
+    ? input.rowWidthPx
+    : 600;
+  const overlayWidthPx = Math.max(1, rowWidthPx * scaleFactor);
 
   const dayColor = ensureHex(sunLayer.colors.day, "#FFD200");
   const sunriseColor = ensureHex(sunLayer.colors.sunrise, dayColor);
@@ -306,11 +381,12 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const rawCenter = input.sunPositionPercent;
   const centerFraction = Number.isFinite(rawCenter)
     ? clamp(rawCenter / 100, 0, 1)
-    : 0;
-  const startVisible = centerFraction - sunHalfWidth;
-  const endVisible = centerFraction + sunHalfWidth;
-  const startFrac = (startVisible + offsetFraction) / scaleFactor;
-  const endFrac = (endVisible + offsetFraction) / scaleFactor;
+    : 0.5;
+  const overlayLeftPercent = (centerFraction - scaleFactor / 2) * 100;
+
+  const gradientSpanOverlayRaw = gradientWidthFraction / scaleFactor;
+  const startFrac = 0.5 - gradientSpanOverlayRaw / 2;
+  const endFrac = 0.5 + gradientSpanOverlayRaw / 2;
 
   const sunCurve = createAlphaGradientCurve({
     profile: sunLayer.alphaProfile ?? DEFAULT_ALPHA_EASING_PROFILE,
@@ -318,16 +394,83 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     opacityScale: 1,
   });
 
+  const gradientStart = Math.min(startFrac, endFrac);
+  const gradientEnd = Math.max(startFrac, endFrac);
+  const gradientSpan = Math.max(gradientEnd - gradientStart, 0);
+  const safeGradientSpan = Math.max(gradientSpan, 1e-6);
+
+  const segments = sunCurve.segments;
+  const leftWidthOriginal = clamp01(segments.leftWidth);
+  const rightWidthOriginal = clamp01(segments.rightWidth);
+  const innerWidthOriginal = clamp01(segments.innerWidth);
+  const totalFadeOriginal = leftWidthOriginal + rightWidthOriginal;
+
+  const innerOverlayRatio = innerWidthOriginal * gradientSpan;
+  const minCenterOverlayRatio = Math.min(gradientSpan, 1 / overlayWidthPx);
+  const desiredInnerOverlayRatio = Math.min(
+    gradientSpan,
+    Math.max(innerOverlayRatio, minCenterOverlayRatio),
+  );
+  const desiredInnerNormalized = gradientSpan > 0 ? desiredInnerOverlayRatio / gradientSpan : 1;
+
+  const edgesEnabled = (sunCurve.enableLeft ? 1 : 0) + (sunCurve.enableRight ? 1 : 0);
+  const perEdgeWidth = edgesEnabled > 0 ? Math.max(0, 1 - desiredInnerNormalized) / edgesEnabled : 0;
+  const effectiveLeftWidth = sunCurve.enableLeft ? perEdgeWidth : 0;
+  const effectiveRightWidth = sunCurve.enableRight ? perEdgeWidth : 0;
+
+  let remapCurveT: ((position: number, curveT: number) => number) | undefined;
+
+  if (totalFadeOriginal > 1e-6) {
+    const newLeftBoundary = sunCurve.enableLeft ? effectiveLeftWidth : 0;
+    const newRightBoundary = sunCurve.enableRight ? 1 - effectiveRightWidth : 1;
+    const innerSpan = Math.max(newRightBoundary - newLeftBoundary, 1e-6);
+    const innerOriginalStart = leftWidthOriginal;
+    const innerOriginalEnd = 1 - rightWidthOriginal;
+
+    remapCurveT = (position: number) => {
+      const relative = clamp01((position - gradientStart) / safeGradientSpan);
+
+      if (relative <= 0) {
+        return 0;
+      }
+      if (relative >= 1) {
+        return 1;
+      }
+
+      if (sunCurve.enableLeft && relative < newLeftBoundary) {
+        if (newLeftBoundary <= 0 || leftWidthOriginal <= 0) {
+          return 0;
+        }
+        const t = relative / Math.max(newLeftBoundary, 1e-6);
+        return clamp01(leftWidthOriginal * t);
+      }
+
+      if (sunCurve.enableRight && relative > newRightBoundary) {
+        if ((1 - newRightBoundary) <= 0 || rightWidthOriginal <= 0) {
+          return 1;
+        }
+        const t = (relative - newRightBoundary) / Math.max(1 - newRightBoundary, 1e-6);
+        return clamp01(innerOriginalEnd + rightWidthOriginal * t);
+      }
+
+      if (innerSpan <= 0 || innerWidthOriginal <= 0) {
+        return clamp01(innerOriginalStart);
+      }
+
+      const t = (relative - newLeftBoundary) / innerSpan;
+      return clamp01(innerOriginalStart + innerWidthOriginal * t);
+    };
+  }
+
   const effectiveStart = Math.min(startFrac, endFrac);
   const effectiveEnd = Math.max(startFrac, endFrac);
   const effectiveSpan = Math.max(1e-6, effectiveEnd - effectiveStart);
-  const segments = sunCurve.segments;
-  const hasLeftFade = segments.leftWidth > 1e-6;
-  const hasRightFade = segments.rightWidth > 1e-6;
+  const hasLeftFade = sunCurve.enableLeft && effectiveLeftWidth > 1e-6;
+  const hasRightFade = sunCurve.enableRight && effectiveRightWidth > 1e-6;
   // When the configured opaque ratio eliminates both edge fades, render a flat fill.
   const treatAsSolidFill = !hasLeftFade && !hasRightFade;
-  const leftBoundary = segments.leftWidth;
-  const rightBoundary = 1 - segments.rightWidth;
+  const leftBoundary = sunCurve.enableLeft ? effectiveLeftWidth : 0;
+  const rightBoundary = sunCurve.enableRight ? 1 - effectiveRightWidth : 1;
   const quadratic = (start: number, control: number, end: number, t: number) => {
     const clamped = clamp01(t);
     const inv = 1 - clamped;
@@ -352,13 +495,16 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
       return clamp01(baseAlpha * envelope);
     }
     if (hasRightFade && gradientT > rightBoundary) {
-      const fadeSpan = Math.max(segments.rightWidth, 1e-6);
+      const fadeSpan = Math.max(effectiveRightWidth, 1e-6);
       const fadeT = clamp01((gradientT - rightBoundary) / fadeSpan);
       const envelope = fadeBlend(alphaPeak, alphaMid, alphaLow, fadeT);
       return clamp01(baseAlpha * envelope);
     }
     return clamp01(baseAlpha * alphaPeak);
   };
+
+  const opaqueStartPosition = gradientStart + safeGradientSpan * clamp01(leftBoundary);
+  const opaqueEndPosition = gradientStart + safeGradientSpan * clamp01(Math.min(leftBoundary + desiredInnerNormalized, 1));
 
   const sunGradient = buildAlphaGradientLayer(
     sunColor,
@@ -367,8 +513,26 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     endFrac,
     1,
     bezierTransform,
-    { clampToUnit: true, includeUnitStops: true },
+    {
+      clampToUnit: true,
+      includeUnitStops: true,
+      remapCurveT,
+      hardOpaqueRange: {
+        start: opaqueStartPosition,
+        end: opaqueEndPosition,
+        alpha: alphaPeak,
+      },
+    },
   );
+
+  const centerFormatPct = (value: number) => `${(clamp01(value) * 100).toFixed(6)}%`;
+  const centerZero = rgba(sunColor, 0);
+  const centerColor = rgba(sunColor, 1);
+  const centerStart = clamp01(opaqueStartPosition);
+  const centerEnd = clamp01(Math.max(centerStart, opaqueEndPosition));
+  const centerGradient = centerEnd - centerStart > 1e-6
+    ? `linear-gradient(90deg, ${centerZero} 0%, ${centerZero} ${centerFormatPct(centerStart)}, ${centerColor} ${centerFormatPct(centerStart)}, ${centerColor} ${centerFormatPct(centerEnd)}, ${centerZero} ${centerFormatPct(centerEnd)}, ${centerZero} 100%)`
+    : `linear-gradient(90deg, ${centerZero} 0%, ${centerZero} ${centerFormatPct(centerStart)}, ${centerColor} ${centerFormatPct(centerStart)}, ${centerColor} ${centerFormatPct(Math.min(1, centerStart + 1 / Math.max(overlayWidthPx, 1)))}, ${centerZero} ${centerFormatPct(Math.min(1, centerStart + 1 / Math.max(overlayWidthPx, 1)))}, ${centerZero} 100%)`;
 
   const verticalFade = "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%)";
 
@@ -391,7 +555,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   const gradientCenterBase = effectiveStart + effectiveSpan / 2;
   const gradientCenterFraction = Number.isFinite(gradientCenterBase)
     ? clamp01(gradientCenterBase)
-    : clamp01((centerFraction + offsetFraction) / scaleFactor);
+    : 0.5;
   const iconLeftOverlayPercent = gradientCenterFraction * 100;
   const iconLeftRowPercent = clamp01(centerFraction) * 100;
 
@@ -407,10 +571,10 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
   };
 
   return {
-    background: `${sunGradient}, ${verticalFade}`,
-    blendMode: isNight ? "multiply, multiply" : "screen, normal",
+    background: `${centerGradient}, ${sunGradient}, ${verticalFade}`,
+    blendMode: isNight ? "normal, multiply, multiply" : "normal, screen, normal",
     icon,
-    widthPercent: scaleFactor * 100,
-    offsetPercent: offsetFraction * 100,
+    widthPercent: overlayWidthPercent,
+    leftPercent: overlayLeftPercent,
   };
 }

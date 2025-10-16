@@ -559,6 +559,10 @@ export class WeatherWidget {
       row.style.backgroundRepeat = "no-repeat, no-repeat";
       row.style.backgroundBlendMode = "normal, normal";
       row.style.backgroundSize = "100% 100%, 100% 100%";
+      const measuredRowWidth = row.clientWidth || row.offsetWidth;
+      const rowWidthPx = Number.isFinite(measuredRowWidth) && (measuredRowWidth ?? 0) > 0
+        ? (measuredRowWidth as number)
+        : (this.host?.clientWidth || container.clientWidth || 600);
       const overlay = row.createDiv({ cls: "ow-sun-overlay" });
       const nowMinutes = timezone
         ? minutesOfDayInTimezone(now, timezone)
@@ -578,12 +582,13 @@ export class WeatherWidget {
         sunPositionPercent: sunPosition,
         timeOfDay: derivedPhase,
         sunAltitudeDegrees: sunAltitude ?? undefined,
+        rowWidthPx,
       });
       overlay.style.background = overlayState.background;
       overlay.style.backgroundBlendMode = overlayState.blendMode;
       overlay.style.backgroundRepeat = "no-repeat, no-repeat";
       overlay.style.backgroundSize = "100% 100%, 100% 100%";
-      overlay.style.left = `-${overlayState.offsetPercent}%`;
+      overlay.style.left = `${overlayState.leftPercent}%`;
       overlay.style.right = "auto";
       overlay.style.width = `${overlayState.widthPercent}%`;
       overlay.style.top = "0";

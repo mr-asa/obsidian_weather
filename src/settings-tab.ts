@@ -1378,6 +1378,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.previewRow.style.backgroundRepeat = "no-repeat, no-repeat";
     this.previewRow.style.backgroundBlendMode = "normal, normal";
     if (this.previewOverlay) {
+      const measuredPreviewWidth = this.previewRow.clientWidth || this.previewRow.offsetWidth;
+      const rowWidthPx = Number.isFinite(measuredPreviewWidth) && (measuredPreviewWidth ?? 0) > 0
+        ? measuredPreviewWidth
+        : (this.previewRow.parentElement?.clientWidth || 600);
       const overlayState = buildSunOverlayState({
         settings,
         nowMinutes: clampedTime,
@@ -1386,12 +1390,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
         sunPositionPercent,
         timeOfDay: derivedPhase,
         sunAltitudeDegrees: sunAltitude ?? undefined,
+        rowWidthPx,
       });
       this.previewOverlay.style.background = overlayState.background;
       this.previewOverlay.style.backgroundBlendMode = overlayState.blendMode;
       this.previewOverlay.style.backgroundRepeat = "no-repeat, no-repeat";
       this.previewOverlay.style.backgroundSize = "100% 100%, 100% 100%";
-      this.previewOverlay.style.left = `-${overlayState.offsetPercent}%`;
+      this.previewOverlay.style.left = `${overlayState.leftPercent}%`;
       this.previewOverlay.style.right = "auto";
       this.previewOverlay.style.width = `${overlayState.widthPercent}%`;
       this.previewOverlay.style.top = "0";
@@ -1399,7 +1404,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       if (this.previewSunIconEl) {
         this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.plugin.settings.sunLayer.icon.monospaced));
         this.previewSunIconEl.textContent = overlayState.icon.symbol;
-      this.previewSunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
+        this.previewSunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
         this.previewSunIconEl.style.top = `${overlayState.icon.topPercent}%`;
         this.previewSunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
         this.previewSunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
