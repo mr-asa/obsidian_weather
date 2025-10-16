@@ -418,18 +418,29 @@ export function resolveTimePhaseColor(
     color: colors.night,
   };
 }
+const ROW_HEIGHT_MIN_PX = 24;
+const ROW_HEIGHT_MAX_PX = 200;
+const ROW_HEIGHT_PADDING_RATIO = 14 / 52;
+const ROW_HEIGHT_PADDING_MIN = 6;
+
 export interface WeatherWidgetOptions {
   inlineCities?: CityLocation[];
+  rowHeight?: number | null;
 }
 
 export class WeatherWidget {
   private host: HTMLElement | null = null;
   private isRegistered = false;
   private readonly inlineCities: CityLocation[];
+  private readonly customRowHeight: number | null;
   constructor(private readonly plugin: WeatherPlugin, options: WeatherWidgetOptions = {}) {
     this.inlineCities = Array.isArray(options.inlineCities)
       ? options.inlineCities.map((city) => ({ ...city }))
       : [];
+    const requestedRowHeight = options.rowHeight;
+    this.customRowHeight = typeof requestedRowHeight === "number" && Number.isFinite(requestedRowHeight)
+      ? clamp(requestedRowHeight, ROW_HEIGHT_MIN_PX, ROW_HEIGHT_MAX_PX)
+      : null;
   }
   mount(containerEl: HTMLElement): void {
     if (this.host !== containerEl) {
@@ -450,12 +461,17 @@ export class WeatherWidget {
     this.render();
   }
   unmount(): void {
-    if (this.isRegistered) {
-      this.plugin.unregisterWidget(this);
-      this.isRegistered = false;
+    const host = this.host;
+    if (host) {
+      host.classList.remove("ow-widget-host");
+      host.replaceChildren();
     }
-    this.host = null;
+    if (this.isRegistered) {
+    this.plugin.unregisterWidget(this);
+    this.isRegistered = false;
   }
+  this.host = null;
+}
   isMounted(): boolean {
     return this.host != null;
   }
@@ -466,28 +482,30 @@ export class WeatherWidget {
     if (!this.host) {
       return;
     }
+    this.host.classList.add("ow-widget-host");
     const strings = this.plugin.getStrings();
     const settings = this.plugin.settings;
     const locale = this.plugin.getLocale();
     this.host.replaceChildren();
     const activeCities = mergeCityLists(settings.cities, this.inlineCities);
     if (activeCities.length === 0) {
-      this.host.createDiv({ cls: "city-widget city-widget--empty", text: strings.widget.forecastPlaceholder });
+      this.host.createDiv({ cls: "ow-widget ow-widget--empty", text: strings.widget.forecastPlaceholder });
       return;
     }
     const viewerNow = new Date();
     const dateFormat = normalizeDateFormat(settings.dateFormat, DEFAULT_SETTINGS.dateFormat);
     const viewerDateComponents = extractDateComponents(viewerNow);
     const viewerDateKey = createDateKey(viewerDateComponents);
-    const container = this.host.createDiv({ cls: "city-widget" });
+    const container = this.host.createDiv({ cls: "ow-widget" });
+    this.applyRowSizing(container);
     for (const city of activeCities) {
       const snapshot = this.plugin.getWeatherSnapshot(city.id);
       if (!snapshot) {
-        const pendingRow = container.createDiv({ cls: "city-row city-row--loading" });
-        pendingRow.createDiv({ cls: "city-name", text: city.label });
-        pendingRow.createDiv({ cls: "time-info", text: strings.widget.loadingLabel ?? "…" });
-        pendingRow.createDiv({ cls: "weather-info", text: "-" });
-        pendingRow.createDiv({ cls: "temperature", text: "--" });
+        const pendingRow = container.createDiv({ cls: "ow-row ow-row--loading" });
+        pendingRow.createDiv({ cls: "ow-city-name", text: city.label });
+        pendingRow.createDiv({ cls: "ow-time-info", text: strings.widget.loadingLabel ?? ":" });
+        pendingRow.createDiv({ cls: "ow-weather-info", text: "-" });
+        pendingRow.createDiv({ cls: "ow-temperature", text: "--" });
         continue;
       }
       const timezone = snapshot.timezone;
@@ -535,13 +553,13 @@ export class WeatherWidget {
         sunriseMinutes,
         sunsetMinutes,
       });
-      const row = container.createDiv({ cls: "city-row" });
+      const row = container.createDiv({ cls: "ow-row" });
       row.style.backgroundColor = gradientState.backgroundColor;
       row.style.backgroundImage = `${gradientState.temperatureGradient}, ${gradientState.weatherGradient}`;
       row.style.backgroundRepeat = "no-repeat, no-repeat";
       row.style.backgroundBlendMode = "normal, normal";
       row.style.backgroundSize = "100% 100%, 100% 100%";
-      const overlay = row.createDiv({ cls: "sun-overlay" });
+      const overlay = row.createDiv({ cls: "ow-sun-overlay" });
       const nowMinutes = timezone
         ? minutesOfDayInTimezone(now, timezone)
         : minutesOfDayWithOffset(now, cityOffsetMinutes);
@@ -570,7 +588,7 @@ export class WeatherWidget {
       overlay.style.width = `${overlayState.widthPercent}%`;
       overlay.style.top = "0";
       overlay.style.bottom = "0";
-      const sunIconEl = row.createSpan({ cls: "sun-overlay__icon" });
+      const sunIconEl = row.createSpan({ cls: "ow-sun-overlay__icon" });
       sunIconEl.setAttr("aria-hidden", "true");
       sunIconEl.classList.toggle("is-monospaced", Boolean(settings.sunLayer.icon.monospaced));
       sunIconEl.textContent = overlayState.icon.symbol;
@@ -580,21 +598,37 @@ export class WeatherWidget {
       sunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
       sunIconEl.style.color = overlayState.icon.color;
       sunIconEl.style.opacity = `${overlayState.icon.opacity}`;
-      const leftGroup = row.createDiv({ cls: "city-row__group city-row__group--left" });
-      const weatherInfo = leftGroup.createDiv({ cls: "weather-info" });
+      const leftGroup = row.createDiv({ cls: "ow-row__group ow-row__group--left" });
+      const weatherInfo = leftGroup.createDiv({ cls: "ow-weather-info" });
       weatherInfo.createSpan({ text: weatherIcon });
       weatherInfo.createSpan({ text: weatherLabel });
-      const nameEl = leftGroup.createDiv({ cls: "city-name" });
+      const nameEl = leftGroup.createDiv({ cls: "ow-city-name" });
       nameEl.textContent = city.label || "-";
-      const rightGroup = row.createDiv({ cls: "city-row__group city-row__group--right" });
-      const timeInfo = rightGroup.createDiv({ cls: "time-info" });
+      const rightGroup = row.createDiv({ cls: "ow-row__group ow-row__group--right" });
+      const timeInfo = rightGroup.createDiv({ cls: "ow-time-info" });
       timeInfo.createSpan({ text: TIME_EMOJIS[derivedPhase] ?? "" });
       timeInfo.createSpan({ text: localTime });
       if (settings.showDateWhenDifferent && cityDate.key !== viewerDateKey) {
-        timeInfo.createSpan({ cls: "date", text: cityDate.label });
+        timeInfo.createSpan({ cls: "ow-date", text: cityDate.label });
       }
-      const temperatureEl = rightGroup.createDiv({ cls: "temperature" });
+      const temperatureEl = rightGroup.createDiv({ cls: "ow-temperature" });
       temperatureEl.textContent = temperatureLabel;
+    }
+  }
+
+  private applyRowSizing(target: HTMLElement): void {
+    if (this.customRowHeight != null) {
+      const height = clamp(this.customRowHeight, ROW_HEIGHT_MIN_PX, ROW_HEIGHT_MAX_PX);
+      const padding = clamp(
+        Math.round(height * ROW_HEIGHT_PADDING_RATIO),
+        ROW_HEIGHT_PADDING_MIN,
+        Math.max(ROW_HEIGHT_PADDING_MIN, Math.round(height / 2)),
+      );
+      target.style.setProperty("--ow-row-min-height", `${height.toFixed(2)}px`);
+      target.style.setProperty("--ow-row-padding-y", `${padding}px`);
+    } else {
+      target.style.removeProperty("--ow-row-min-height");
+      target.style.removeProperty("--ow-row-padding-y");
     }
   }
 }

@@ -9,6 +9,7 @@ const CITY_LINE_REGEX = /^"([^"]+)"\s+([+-]?\d+(?:\.\d+)?)\s+([+-]?\d+(?:\.\d+)?
 interface ParsedInlineCities {
   cities: CityLocation[];
   errors: string[];
+  rowHeight: number | null;
 }
 
 function parseInlineCities(source: string): ParsedInlineCities {
@@ -16,10 +17,22 @@ function parseInlineCities(source: string): ParsedInlineCities {
   const errors: string[] = [];
   const seenSignatures = new Set<string>();
   const lines = source.split(/\r?\n/);
+  let rowHeight: number | null = null;
+  const heightDirective = /^\s*(?:row-?height|height)\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*(px)?\s*$/i;
   for (let i = 0; i < lines.length; i += 1) {
     const rawLine = lines[i];
     const trimmed = rawLine.trim();
     if (trimmed.length === 0) {
+      continue;
+    }
+    const directiveMatch = heightDirective.exec(trimmed);
+    if (directiveMatch) {
+      const value = Number.parseFloat(directiveMatch[1]);
+      if (Number.isFinite(value) && value > 0) {
+        rowHeight = value;
+      } else {
+        errors.push(`Line ${i + 1}: row height must be a positive number.`);
+      }
       continue;
     }
     const match = CITY_LINE_REGEX.exec(trimmed);
@@ -51,13 +64,16 @@ function parseInlineCities(source: string): ParsedInlineCities {
       longitude,
     });
   }
-  return { cities, errors };
+  return { cities, errors, rowHeight };
 }
 
 export function registerMarkdownWeatherWidget(plugin: WeatherPlugin): void {
   plugin.registerMarkdownCodeBlockProcessor("weather-widget", (source, element, ctx: MarkdownPostProcessorContext) => {
     const parsed = parseInlineCities(source);
-    const widget = new WeatherWidget(plugin, { inlineCities: parsed.cities });
+    const widget = new WeatherWidget(plugin, {
+      inlineCities: parsed.cities,
+      rowHeight: parsed.rowHeight ?? undefined,
+    });
     widget.mount(element);
 
     ctx.addChild(new (class extends MarkdownRenderChild {
@@ -76,6 +92,9 @@ export function registerMarkdownWeatherWidget(plugin: WeatherPlugin): void {
       const prefix = plugin.getStrings().markdown.debugParameters;
       const effectivePrefix = prefix.includes("TODO") ? "Inline cities:\n" : prefix;
       debugLines.push(`${effectivePrefix}${trimmedSource}`);
+    }
+    if (parsed.rowHeight != null && Number.isFinite(parsed.rowHeight)) {
+      debugLines.push(`Row height: ${parsed.rowHeight}px`);
     }
     if (parsed.errors.length > 0) {
       debugLines.push(...parsed.errors);

@@ -13,12 +13,12 @@ Weather Widget brings a live multi-city forecast directly into your Obsidian wor
 
 ## Installation
 ### From Obsidian
-You can activate this plugin within Obsidian by doing the following:
-- Open *Settings -> Community plugins*
-- Click *Browse* community plugins
-- Search for "Wether"
-- Click Install
-- Once installed, activate it
+In Progress\
+~~You can activate this plugin within Obsidian by doing the following:~~\
+~~- Open *Settings -> Community plugins*~~\
+~~- Click *Browse* community plugins~~\
+~~- Search for "Wether"~~\
+~~- Click Install, activate~~
 
 ### Manual installation
 1. Download `main.js`, `manifest.json`, `styles.css` from the latest release and put them into `<vault>/.obsidian/plugins/obsidian-weather` folder.
@@ -35,13 +35,18 @@ Minimal block:
   ```weather-widget
   ~~~
 
-Block with inline cities:  
+Block with inline cities and height of raw override:  
   ~~~markdown
   ```weather-widget
-  "Mössingen" 48.406635031986724  9.057441152479019
+  row-height: 24
+  "Mossingen" 48.406635031986724  9.057441152479019
   "Uhan City" 30.59543            114.29987
   ```
   ~~~
+
+
+`row-height` accepts a value in pixels and only affects the current block.  
+Rows default to ~36 px and may be set anywhere between 24 px and 200 px.
 
 ## Commands
 - `Weather Widget: Open tab` — reveals the live widget view (right sidebar by default).

@@ -370,19 +370,7 @@ export function buildSunOverlayState(input: SunOverlayInput): SunOverlayState {
     { clampToUnit: true, includeUnitStops: true },
   );
 
-  const middleAlpha = clamp01(settings.verticalFade.middle);
-  const edgeAlpha = clamp01(settings.verticalFade.top);
-  const edgeFadePercent = 6;
-  const innerStart = Math.min(50, edgeFadePercent + 0.1);
-  const innerEnd = Math.max(50, 100 - edgeFadePercent - 0.1);
-  const verticalFade = `linear-gradient(180deg,
-    rgba(0,0,0,0) 0%,
-    rgba(0,0,0,0) ${edgeFadePercent}%,
-    rgba(0,0,0,${edgeAlpha}) ${innerStart}%,
-    rgba(0,0,0,${middleAlpha}) 50%,
-    rgba(0,0,0,${edgeAlpha}) ${innerEnd}%,
-    rgba(0,0,0,0) ${100 - edgeFadePercent}%,
-    rgba(0,0,0,0) 100%)`;
+  const verticalFade = "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%)";
 
   const iconSymbol = sunLayer.icon?.symbol;
   const sunSymbol = typeof iconSymbol === "string" ? iconSymbol : DEFAULT_SETTINGS.sunLayer.icon.symbol;
