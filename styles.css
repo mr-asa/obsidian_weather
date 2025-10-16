@@ -29,6 +29,7 @@
   min-height: var(--ow-row-min-height, 36px);
   align-items: center;
   color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
 
@@ -118,6 +119,7 @@
   pointer-events: none;
   transition: transform 0.3s ease, top 0.3s ease, left 0.3s ease, opacity 0.3s ease;
   will-change: transform, top, left;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
 }
 
 .ow-sun-overlay__icon.is-monospaced {
