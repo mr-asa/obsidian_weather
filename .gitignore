@@ -1,25 +1,29 @@
-# vscode
-.vscode 
-
-# Intellij
+# Editors / IDEs
+.vscode/
+.idea/
 *.iml
-.idea
 
-# npm
-node_modules
-
-# Don't include the compiled main.js file in the repo.
-# They should be uploaded to GitHub releases instead.
-main.js
-
-# Exclude sourcemaps
-*.map
-
-# obsidian
-data.json
-
-# Exclude macOS Finder (System Explorer) View States
+# OS cruft
 .DS_Store
+Thumbs.db
 
-# Exclude other files
+# Node tooling
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# Build artefacts – published via release bundle only
+main.js
+main.js.map
+*.map
+dist/
+build/
+esbuild/
+
+# Project-only scratch files
 mindmap.txt
+
+.eslint*
+.editorconfig
