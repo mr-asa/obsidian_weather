@@ -79,7 +79,7 @@ This project grew from that experiment: a configurable widget that renders the s
 ### Manual installation
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the latest release.
-2. Copy the files into `<vault>/.obsidian/plugins/obsidian-weather`.
+2. Copy the files into `<vault>/.obsidian/plugins/weather-widget`.
 3. Enable **Weather Widget** under *Settings → Community plugins*.
 
 ## Usage

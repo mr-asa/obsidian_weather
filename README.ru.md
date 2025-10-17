@@ -82,7 +82,7 @@
 
 ### Ручная установка
 
-- Скачайте `main.js`, `manifest.json`, `styles.css` из последнего релиза и поместите их в папку `<vault>/.obsidian/plugins/obsidian-weather`.
+- Скачайте `main.js`, `manifest.json`, `styles.css` из последнего релиза и поместите их в папку `<vault>/.obsidian/plugins/weather-widget`.
 - Включите Weather Widget в *Settings -> Community plugins.*
 
 ## Использование
