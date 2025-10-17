@@ -3,11 +3,11 @@
   "cities": [],
   "weatherCacheMinutes": 60,
   "autoRefreshMinutes": 15,
-  "weatherProvider": "openweathermap",
-  "weatherProviderApiKey": "987f90833f127e80970a5ec254f7b690",
+  "weatherProvider": "open-meteo",
+  "weatherProviderApiKey": "",
   "weatherProviderApiKeys": {
     "open-meteo": "",
-    "openweathermap": "987f90833f127e80970a5ec254f7b690"
+    "openweathermap": ""
   },
   "weatherAlpha": {
     "profile": "quadIn",
