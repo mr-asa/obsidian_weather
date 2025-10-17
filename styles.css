@@ -569,6 +569,8 @@
 
 .weather-settings__date-row .setting-item {
   margin: 0;
+  border-top: none;
+  padding-top: 0;
 }
 
 .weather-settings__grid-item {

@@ -869,7 +869,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     iconSetting.settingEl.addClass("weather-settings__grid-item");
     let iconInputEl: HTMLInputElement | undefined;
     iconSetting.addText((text) => {
-            text.inputEl.maxLength = 4;
+      text.inputEl.maxLength = 5;
       text.inputEl.classList.add("weather-settings__icon-input");
       text.inputEl.classList.toggle("is-monospaced", Boolean(sunLayer.icon.monospaced));
       iconInputEl = text.inputEl;
@@ -1587,19 +1587,69 @@ export class WeatherSettingsTab extends PluginSettingTab {
             setting.setDesc(options.desc);
     }
     setting.addText((text) => {
-            text.inputEl.type = "number";
+            const getStepPrecision = (step?: string): number => {
+        if (!step || step === "any") {
+          return 0;
+        }
+        const [, decimals = ""] = step.split(".");
+        return decimals.length;
+      };
+      const decimalPlaces = getStepPrecision(options.step);
+      const precisionFactor = decimalPlaces > 0 ? 10 ** decimalPlaces : null;
+      const quantize = (input: number): number => {
+        if (precisionFactor === null) {
+          return input;
+        }
+        return Math.round(input * precisionFactor) / precisionFactor;
+      };
+      const formatValue = (input: number): string => {
+        if (precisionFactor === null) {
+          return String(input);
+        }
+        return quantize(input).toFixed(decimalPlaces);
+      };
+      const epsilon = precisionFactor !== null ? 1 / (precisionFactor * 2) : 0;
+      let currentValue = quantize(value);
+      text.inputEl.type = "number";
       if (options.min != null) text.inputEl.min = String(options.min);
       if (options.max != null) text.inputEl.max = String(options.max);
       if (options.step != null) text.inputEl.step = options.step;
-      text.setValue(String(value));
-      text.onChange((raw) => {
-                const parsed = Number(raw);
-        if (Number.isFinite(parsed)) {
-                    const normalized = apply(parsed);
-          text.setValue(String(normalized));
+      if (precisionFactor !== null) {
+        text.inputEl.inputMode = "decimal";
+      }
+      text.setValue(formatValue(currentValue));
+      const commitValue = (raw: string, finalize: boolean): void => {
+        const normalizedRaw = raw.replace(",", ".").trim();
+        if (normalizedRaw.length === 0) {
+          if (finalize) {
+            text.setValue(formatValue(currentValue));
+          }
+          return;
+        }
+        const parsed = Number(normalizedRaw);
+        if (!Number.isFinite(parsed)) {
+          if (finalize) {
+            text.setValue(formatValue(currentValue));
+          }
+          return;
+        }
+        const rounded = quantize(parsed);
+        const applied = quantize(apply(rounded));
+        const changed = Math.abs(applied - currentValue) > epsilon;
+        if (changed) {
+          currentValue = applied;
           void this.plugin.saveSettings();
           options.onChange?.();
         }
+        if (finalize || rounded !== applied || changed) {
+          text.setValue(formatValue(applied));
+        }
+      };
+      text.onChange((raw) => {
+                commitValue(raw, false);
+      });
+      text.inputEl.addEventListener("blur", () => {
+                commitValue(text.inputEl.value, true);
       });
     });
     return setting;

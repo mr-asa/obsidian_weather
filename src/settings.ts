@@ -149,7 +149,7 @@ export const TIME_OF_DAY_KEYS: TimeOfDayKey[] = [
   "night",
 ];
 export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
-    language: "ru",
+  language: "en",
   cities: [],
   weatherCacheMinutes: 60,
   autoRefreshMinutes: 15,
