@@ -299,7 +299,7 @@ export default class WeatherPlugin extends Plugin {
                 color: typeof style.color === "string" && style.color.trim().length > 0
         ? style.color.trim()
           : defaults.categoryStyles[category].color,
-          icon: typeof style.icon === "string" && style.icon.trim().length > 0
+          icon: typeof style.icon === "string"
         ? style.icon.trim()
           : defaults.categoryStyles[category].icon,
         };
@@ -318,7 +318,7 @@ export default class WeatherPlugin extends Plugin {
     }
     TIME_OF_DAY_KEYS.forEach((key) => {
             const icon = this.settings.timeIcons[key];
-      this.settings.timeIcons[key] = typeof icon === "string" && icon.trim().length > 0
+      this.settings.timeIcons[key] = typeof icon === "string"
       ? icon.trim()
         : defaults.timeIcons[key];
       });
@@ -379,7 +379,7 @@ export default class WeatherPlugin extends Plugin {
         ? Math.min(Math.max(overflowValue, 0), 200)
         : overflowFallback;
       const icon = sunLayer.icon ?? { ...fallback.icon };
-      const symbol = typeof icon.symbol === "string" ? icon.symbol : fallback.icon.symbol;
+      const symbol = typeof icon.symbol === "string" ? icon.symbol.trim() : fallback.icon.symbol;
       const scaleValue = Number(icon.scale);
       const scale = Number.isFinite(scaleValue) ? Math.min(Math.max(scaleValue, 0.1), 5) : fallback.icon.scale;
       sunLayer.icon = {

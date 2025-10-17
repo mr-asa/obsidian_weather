@@ -516,10 +516,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
                 text.inputEl.maxLength = 5;
         text.inputEl.size = 5;
         text.inputEl.classList.add("weather-settings__icon-input");
-        text.setValue(this.plugin.settings.timeIcons[phase] ?? DEFAULT_SETTINGS.timeIcons[phase]);
+        text.setValue(this.plugin.settings.timeIcons?.[phase] ?? DEFAULT_SETTINGS.timeIcons[phase]);
         text.onChange((value) => {
                     const trimmed = value.trim();
-          this.plugin.settings.timeIcons[phase] = trimmed.length > 0 ? trimmed : DEFAULT_SETTINGS.timeIcons[phase];
+          this.plugin.settings.timeIcons[phase] = trimmed;
           void this.plugin.saveSettings();
           this.refreshPreviewRow();
         });
@@ -637,12 +637,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
               this.refreshPreviewRow();
             }))
             .addText((text) => {
-                    text.inputEl.maxLength = 5;
+          text.inputEl.maxLength = 5;
           text.inputEl.size = 5;
           text.inputEl.classList.add("weather-settings__icon-input");
-          text.setValue(this.plugin.settings.categoryStyles[category].icon);
+          const currentIcon = this.plugin.settings.categoryStyles[category].icon;
+          text.setValue(typeof currentIcon === "string" ? currentIcon : DEFAULT_SETTINGS.categoryStyles[category].icon);
           text.onChange((value) => {
-                        this.plugin.settings.categoryStyles[category].icon = value.trim() || DEFAULT_SETTINGS.categoryStyles[category].icon;
+                        this.plugin.settings.categoryStyles[category].icon = value.trim();
             void this.plugin.saveSettings();
             this.refreshPreviewRow();
           });
@@ -885,7 +886,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       iconInputEl = text.inputEl;
       text.setValue(sunLayer.icon.symbol);
       text.onChange((value) => {
-                sunLayer.icon.symbol = value;
+                sunLayer.icon.symbol = value.trim();
         void this.plugin.saveSettings();
         this.refreshPreviewRow();
       });
@@ -1425,10 +1426,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const timeLabel = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     if (this.previewTimeIconEl) {
       const icons = this.plugin.settings.timeIcons ?? PREVIEW_TIME_EMOJIS;
-      const primary = icons[derivedPhase]?.trim();
-      const fallback = PREVIEW_TIME_EMOJIS[derivedPhase]?.trim();
-      const icon = primary && primary.length > 0 ? primary : fallback ?? "";
+      const configured = icons?.[derivedPhase];
+      const icon =
+        typeof configured === "string"
+          ? configured.trim()
+          : PREVIEW_TIME_EMOJIS[derivedPhase]?.trim() ?? "";
       this.previewTimeIconEl.textContent = icon;
+      this.previewTimeIconEl.classList.toggle("is-hidden", icon.length === 0);
     }
     if (this.previewTimeTextEl) {
       this.previewTimeTextEl.textContent = timeLabel;
@@ -1447,10 +1451,15 @@ export class WeatherSettingsTab extends PluginSettingTab {
       this.previewDateEl.classList.toggle("is-hidden", !shouldShowDate);
       this.previewDateEl.style.opacity = shouldShowDate ? "0.6" : "0";
     }
-    const weatherIcon = categoryStyle?.icon?.trim() || PREVIEW_FALLBACK_ICON;
+    const rawWeatherIcon = categoryStyle?.icon;
+    const fallbackWeatherIcon =
+      DEFAULT_SETTINGS.categoryStyles[this.sampleWeatherCategory]?.icon ?? PREVIEW_FALLBACK_ICON;
+    const weatherIcon =
+      typeof rawWeatherIcon === "string" ? rawWeatherIcon.trim() : fallbackWeatherIcon;
     const weatherLabel = this.plugin.translateWeatherCategory(this.sampleWeatherCategory);
     if (this.previewWeatherIconEl) {
       this.previewWeatherIconEl.textContent = weatherIcon;
+      this.previewWeatherIconEl.classList.toggle("is-hidden", weatherIcon.length === 0);
     }
     if (this.previewWeatherTextEl) {
       this.previewWeatherTextEl.textContent = weatherLabel;

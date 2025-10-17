@@ -22,12 +22,7 @@ import {
 } from "../utils/date-format";
 const MINUTES_IN_DAY = 1_440;
 const MS_PER_MINUTE = 60_000;
-const TIME_EMOJIS: Record<TimeOfDayKey, string> = {
-  morning: "🌅",
-  day: "🌞",
-  evening: "🌇",
-  night: "🌙",
-};
+const TIME_ICON_DEFAULTS: Record<TimeOfDayKey, string> = { ...DEFAULT_SETTINGS.timeIcons };
 
 const WEATHER_FALLBACK_ICON = "☁";
 type TimePaletteColor = string;
@@ -528,7 +523,11 @@ export class WeatherWidget {
         : `${snapshot.temperature > 0 ? "+" : ""}${Math.round(snapshot.temperature)}°`;
       const category = wmoToCategory(snapshot.weatherCode);
       const categoryStyle = settings.categoryStyles[category];
-      const weatherIcon = categoryStyle?.icon?.trim() ?? WEATHER_FALLBACK_ICON;
+      const rawWeatherIcon = categoryStyle?.icon;
+      const fallbackWeatherIcon =
+        DEFAULT_SETTINGS.categoryStyles[category]?.icon ?? WEATHER_FALLBACK_ICON;
+      const weatherIcon =
+        typeof rawWeatherIcon === "string" ? rawWeatherIcon.trim() : fallbackWeatherIcon;
       const weatherColor = ensureHex(categoryStyle?.color ?? "#6b7280", "#6b7280");
       const weatherLabel = strings.weatherConditions[category] ?? category;
       const sunPosition = sunPositionPercent(snapshot.sunrise, snapshot.sunset, timezone, cityOffsetMinutes, city.longitude);
@@ -543,6 +542,11 @@ export class WeatherWidget {
         city.longitude,
       );
       const derivedPhase = timePhase.phase ?? getTimeOfDay(Number.isFinite(hourValue) ? hourValue : 0);
+      const timeIconSource = settings.timeIcons?.[derivedPhase];
+      const timeIcon =
+        typeof timeIconSource === "string"
+          ? timeIconSource.trim()
+          : TIME_ICON_DEFAULTS[derivedPhase]?.trim() ?? "";
       const baseColor = ensureHex(timePhase.color, settings.timeBaseColors[derivedPhase]);
       const temperatureColor = tempToColor(snapshot.temperature, settings.temperatureGradient);
       const gradientState = computeGradientLayers({
@@ -605,13 +609,17 @@ export class WeatherWidget {
       sunIconEl.style.opacity = `${overlayState.icon.opacity}`;
       const leftGroup = row.createDiv({ cls: "ow-row__group ow-row__group--left" });
       const weatherInfo = leftGroup.createDiv({ cls: "ow-weather-info" });
-      weatherInfo.createSpan({ text: weatherIcon });
+      if (weatherIcon.length > 0) {
+        weatherInfo.createSpan({ text: weatherIcon });
+      }
       weatherInfo.createSpan({ text: weatherLabel });
       const nameEl = leftGroup.createDiv({ cls: "ow-city-name" });
       nameEl.textContent = city.label || "-";
       const rightGroup = row.createDiv({ cls: "ow-row__group ow-row__group--right" });
       const timeInfo = rightGroup.createDiv({ cls: "ow-time-info" });
-      timeInfo.createSpan({ text: TIME_EMOJIS[derivedPhase] ?? "" });
+      if (timeIcon.length > 0) {
+        timeInfo.createSpan({ text: timeIcon });
+      }
       timeInfo.createSpan({ text: localTime });
       if (settings.showDateWhenDifferent && cityDate.key !== viewerDateKey) {
         timeInfo.createSpan({ cls: "ow-date", text: cityDate.label });
