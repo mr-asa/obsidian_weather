@@ -38,12 +38,7 @@ const MS_PER_MINUTE = 60_000;
 const PREVIEW_LATITUDE = 55.7558;
 const PREVIEW_LONGITUDE = 37.6176;
 const PREVIEW_TIMEZONE_OFFSET = 180;
-const PREVIEW_TIME_EMOJIS: Record<TimeOfDayKey, string> = {
-  morning: "🌅",
-  day: "🌞",
-  evening: "🌇",
-  night: "🌙",
-};
+const PREVIEW_TIME_EMOJIS: Record<TimeOfDayKey, string> = { ...DEFAULT_SETTINGS.timeIcons };
 const PREVIEW_FALLBACK_ICON = "☁";
 const minutesToIsoLocal = (minutes: number): string => {
   const clamped = clamp(minutes, 0, MINUTES_IN_DAY - 1);
@@ -502,6 +497,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.display();
   }
   private renderTimePaletteContent(parent: HTMLElement, strings: LocaleStrings): void {
+    if (!this.plugin.settings.timeIcons) {
+            this.plugin.settings.timeIcons = { ...DEFAULT_SETTINGS.timeIcons };
+    }
         const grid = parent.createDiv({ cls: "weather-settings__color-grid" });
     TIME_OF_DAY_KEYS.forEach((phase) => {
             const setting = new Setting(grid).setName(strings.sunPhases[phase]);
@@ -514,6 +512,18 @@ export class WeatherSettingsTab extends PluginSettingTab {
             this.updateTimeGradientPreview?.();
             this.refreshPreviewRow();
           }));
+      setting.addText((text) => {
+                text.inputEl.maxLength = 5;
+        text.inputEl.size = 5;
+        text.inputEl.classList.add("weather-settings__icon-input");
+        text.setValue(this.plugin.settings.timeIcons[phase] ?? DEFAULT_SETTINGS.timeIcons[phase]);
+        text.onChange((value) => {
+                    const trimmed = value.trim();
+          this.plugin.settings.timeIcons[phase] = trimmed.length > 0 ? trimmed : DEFAULT_SETTINGS.timeIcons[phase];
+          void this.plugin.saveSettings();
+          this.refreshPreviewRow();
+        });
+      });
         });
     this.appendSectionHeader(
       parent,
@@ -1414,7 +1424,11 @@ export class WeatherSettingsTab extends PluginSettingTab {
     }
     const timeLabel = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     if (this.previewTimeIconEl) {
-      this.previewTimeIconEl.textContent = PREVIEW_TIME_EMOJIS[derivedPhase] ?? "";
+      const icons = this.plugin.settings.timeIcons ?? PREVIEW_TIME_EMOJIS;
+      const primary = icons[derivedPhase]?.trim();
+      const fallback = PREVIEW_TIME_EMOJIS[derivedPhase]?.trim();
+      const icon = primary && primary.length > 0 ? primary : fallback ?? "";
+      this.previewTimeIconEl.textContent = icon;
     }
     if (this.previewTimeTextEl) {
       this.previewTimeTextEl.textContent = timeLabel;

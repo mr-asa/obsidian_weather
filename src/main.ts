@@ -313,6 +313,15 @@ export default class WeatherPlugin extends Plugin {
       ? value.trim()
         : defaults.timeBaseColors[key];
       });
+    if (!this.settings.timeIcons) {
+            this.settings.timeIcons = { ...defaults.timeIcons };
+    }
+    TIME_OF_DAY_KEYS.forEach((key) => {
+            const icon = this.settings.timeIcons[key];
+      this.settings.timeIcons[key] = typeof icon === "string" && icon.trim().length > 0
+      ? icon.trim()
+        : defaults.timeIcons[key];
+      });
     const timeTransitionDefaults = defaults.timeColorTransitions;
     const normalizeTransition = (
       source: { before?: number; after?: number } | undefined,

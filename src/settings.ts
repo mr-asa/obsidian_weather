@@ -122,6 +122,7 @@ export interface WeatherWidgetSettings {
   temperatureAlpha: AlphaGradientSettings;
   categoryStyles: Record<WeatherCategory, CategoryStyle>;
   timeBaseColors: Record<TimeOfDayKey, string>;
+  timeIcons: Record<TimeOfDayKey, string>;
   timeColorTransitions: SunColorTransitions;
   sunLayer: SunLayerSettings;
   gradients: GradientSettings;
@@ -187,6 +188,12 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     day: "#87CEEB",
     evening: "#bd7070",
     night: "#162331",
+  },
+  timeIcons: {
+        morning: "\u{1F305}",
+    day: "\u{1F31E}",
+    evening: "\u{1F307}",
+    night: "\u{1F319}",
   },
   timeColorTransitions: {
     sunrise: { before: 45, after: 45 },
