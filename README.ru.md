@@ -6,7 +6,10 @@
 
 <div align="center">
 
-<img src="assets/base_view.png" alt="base view" width="100%">
+<img src="assets/base_views.png" alt="base view" width="100%">
+<figcaption>Пример настоек плагина (minimal, soft, no presets)</figcaption>
+
+---
 
 [**English**](./README.md) | **Русский**
 

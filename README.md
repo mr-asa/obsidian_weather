@@ -6,7 +6,10 @@
 
 <div align="center">
 
-<img src="assets/base_view.png" alt="Weather widget preview" width="100%">
+<img src="assets/base_views.png" alt="Weather widget preview" width="100%">
+<figcaption>Example of plugin settings (minimal, soft, no presets)</figcaption>
+
+---
 
 **English** | [**Русский**](./README.ru.md)
 
