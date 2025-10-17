@@ -1082,8 +1082,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
     cityEl.textContent = strings.settings.preview.sampleCity;
     const rightGroup = row.createDiv({ cls: "ow-row__group ow-row__group--right" });
     const timeCell = rightGroup.createDiv({ cls: "ow-time-info weather-widget__cell weather-widget__time" });
-    this.previewTimeIconEl = timeCell.createSpan({ cls: "weather-widget__icon" });
-    this.previewTimeTextEl = timeCell.createSpan();
+    this.previewTimeIconEl = timeCell.createSpan({ cls: "weather-widget__icon weather-widget__time-icon" });
+    this.previewTimeTextEl = timeCell.createSpan({ cls: "weather-widget__time-value" });
     this.previewDateEl = timeCell.createSpan({ cls: "weather-widget__date" });
     const temperatureContainer = rightGroup.createDiv({ cls: "ow-temperature weather-widget__cell weather-widget__temperature" });
     this.previewTemperatureEl = temperatureContainer.createSpan();

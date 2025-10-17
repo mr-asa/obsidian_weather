@@ -1,7 +1,7 @@
 {
   "id": "obsidian-weather",
   "name": "Weather Widget",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.4.0",
   "description": "Weather widget for display in notes, Canvas, and a separate tab.",
   "author": "mr-asa",

@@ -21,6 +21,17 @@
 - [Usage](#usage)
 - [Command Palette](#command-palette)
 - [Settings Reference](#settings-reference)
+---
+
+<p align="center">
+If this plugin helps you as much as it helps me, I’d really appreciate any support!
+  <br>
+  <a href="https://buymeacoffee.com/mr.asa" target="_blank">
+  <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmsyODFrZ2Qxa3Rmb3RpazN5ZXA2Z3B6MDk0NGdvY2oycTBzYmFlMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/TDQOtnWgsBx99cNoyH/giphy.gif" alt="Buy Me A Coffee" width="17%">
+  </a>
+</p>
+
+---
 
 </td>
 </tr>
@@ -42,11 +53,11 @@ This project grew from that experiment: a configurable widget that renders the s
 ## Key Features
 
 - Multi-city layout with automatic time zone offsets, sunrise/sunset easing, and temperature-driven gradients.
-- Works everywhere: dedicated sidebar view, inline Markdown blocks, and Canvas nodes.
-- Two weather providers (Open-Meteo by default, OpenWeather with your API key) with caching to stay inside rate limits.
-- Rich appearance controls: icons per weather category, time-of-day palette, sun overlay, and layered gradients with live preview.
-- Localisation for English and Russian.
 - Command palette shortcuts for opening the view or inserting a Canvas node.
+- Works everywhere: dedicated sidebar view, inline Markdown blocks, and Canvas nodes.
+- Two weather providers (Open-Meteo by default, OpenWeather – requires a free API key) with caching to stay inside rate limits.
+- Deep appearance controls: swap any icons, palettes, sun overlay behaviour, and layered gradients with live preview.
+- Localisation for English and Russian.
 
 ## Installation
 
@@ -122,6 +133,7 @@ row-height: 24
 
 ### Time-of-day palette
 - Choose base colors for morning, day, evening, and night.
+- Replace the time-of-day icons if you prefer custom symbols (for example: ◑ ◉ ◐ ⨀).
 - Define how many minutes before sunrise/sunset blending should start and end.
 
 ### Sun layer
@@ -139,7 +151,7 @@ You can choose any text character or combination of characters for the sun icon.
 The main rule for proper display is that the symbol should be centered on the line.
 Here are some examples of possible symbols:
 > 
-> ◯○৹●•·◎◉\
+> ◯⨀○৹●•·◎◉\
 > ▣◇◆▪▫\
 > \- – —\
 > ►◄▻◅▸◂▹◃\
@@ -160,6 +172,7 @@ You can also disable the icon entirely, leaving only the color accent.
 
 > [!note]
 > Weather and temperature transitions can differ in perceived width for each city. This is deliberate: daylight length is reflected in the gradient span. Compressing both layers to the same width would hide that variance.
+> > Long live the gradations inside serialization!
 
 - **Row height limits** – define minimum and maximum heights. Widgets respect these bounds when a block or setting requests a taller/shorter row.
 

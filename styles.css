@@ -84,6 +84,12 @@
 }
 
 .ow-time-info {
+  font-family: var(--font-text);
+}
+.ow-time-info .ow-time-label,
+.ow-time-info .ow-date,
+.weather-widget__time-value,
+.weather-widget__date {
   font-family: var(--font-monospace);
 }
 

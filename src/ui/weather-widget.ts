@@ -618,9 +618,9 @@ export class WeatherWidget {
       const rightGroup = row.createDiv({ cls: "ow-row__group ow-row__group--right" });
       const timeInfo = rightGroup.createDiv({ cls: "ow-time-info" });
       if (timeIcon.length > 0) {
-        timeInfo.createSpan({ text: timeIcon });
+        timeInfo.createSpan({ text: timeIcon, cls: "ow-time-icon" });
       }
-      timeInfo.createSpan({ text: localTime });
+      timeInfo.createSpan({ text: localTime, cls: "ow-time-label" });
       if (settings.showDateWhenDifferent && cityDate.key !== viewerDateKey) {
         timeInfo.createSpan({ cls: "ow-date", text: cityDate.label });
       }
