@@ -16,7 +16,13 @@ import { clamp, normalize } from "./utils/math";
 import { ensureHex, lerpColorGamma } from "./utils/color";
 import { DEFAULT_ALPHA_EASING_PROFILE, type AlphaEasingProfile } from "./utils/alpha-gradient";
 import { computeSolarAltitude } from "./utils/solar";
-import { buildSunOverlayState, computeGradientLayers } from "./utils/widget-render";
+import {
+  buildSunOverlayState,
+  computeGradientLayers,
+  type GradientLayerResult,
+  type SunOverlayIconState,
+  type SunOverlayState,
+} from "./utils/widget-render";
 import { resolveTimePhaseColor } from "./ui/weather-widget";
 import { createId } from "./utils/id";
 import { extractDateComponents, formatDateComponents, normalizeDateFormat } from "./utils/date-format";
@@ -35,6 +41,45 @@ const PREVIEW_DAY_SPAN = 0.4;
 const MINUTES_IN_DAY = 1_440;
 const SECONDS_IN_DAY = 86_400;
 const MS_PER_MINUTE = 60_000;
+
+function applyRowGradientStyles(target: HTMLElement, gradients: GradientLayerResult): void {
+  const backgroundColor = gradients.backgroundColor?.trim() ?? "";
+  const temperatureLayer = gradients.temperatureGradient?.trim() ?? "none";
+  const weatherLayer = gradients.weatherGradient?.trim() ?? "none";
+  const resolvedBackground = backgroundColor.length > 0 ? backgroundColor : "transparent";
+  target.style.setProperty("--ow-row-background-color", resolvedBackground);
+  target.style.setProperty("--ow-row-temperature-gradient", temperatureLayer);
+  target.style.setProperty("--ow-row-weather-gradient", weatherLayer);
+}
+
+function applySunOverlayStyles(target: HTMLElement, overlay: SunOverlayState): void {
+  const background = overlay.background?.trim() ?? "none";
+  const blendMode = overlay.blendMode?.trim() ?? "normal";
+  const leftPercent = Number.isFinite(overlay.leftPercent) ? overlay.leftPercent : 0;
+  const widthPercent = Number.isFinite(overlay.widthPercent) ? overlay.widthPercent : 100;
+  target.style.setProperty("--ow-overlay-background", background);
+  target.style.setProperty("--ow-overlay-blend-mode", blendMode);
+  target.style.setProperty("--ow-overlay-left", `${leftPercent}%`);
+  target.style.setProperty("--ow-overlay-width", `${widthPercent}%`);
+}
+
+function applySunIconStyles(target: HTMLElement, icon: SunOverlayIconState): void {
+  const leftPercent = Number.isFinite(icon.leftPercent) ? icon.leftPercent : 50;
+  const topPercent = Number.isFinite(icon.topPercent) ? icon.topPercent : 50;
+  const scale = Number.isFinite(icon.scale) ? icon.scale : 1;
+  const opacity = Number.isFinite(icon.opacity) ? icon.opacity : 1;
+  const color = icon.color?.trim() ?? "";
+  target.style.setProperty("--ow-sun-icon-left", `${leftPercent}%`);
+  target.style.setProperty("--ow-sun-icon-top", `${topPercent}%`);
+  target.style.setProperty("--ow-sun-icon-scale", scale.toString());
+  target.style.setProperty("--ow-sun-icon-opacity", opacity.toString());
+  if (color.length > 0) {
+    target.style.setProperty("--ow-sun-icon-color", color);
+  } else {
+    target.style.removeProperty("--ow-sun-icon-color");
+  }
+}
+
 const PREVIEW_LATITUDE = 55.7558;
 const PREVIEW_LONGITUDE = 37.6176;
 const PREVIEW_TIMEZONE_OFFSET = 180;
@@ -1064,11 +1109,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
     renderer(body);
   }
   private renderGradientPreviewSection(parent: HTMLElement, strings: LocaleStrings): void {
-        const previewSection = parent.createDiv({ cls: "weather-settings__preview-section" });
+    const previewSection = parent.createDiv({ cls: "weather-settings__preview-section" });
     this.appendSectionHeader(previewSection, strings.settings.preview.heading, strings.settings.preview.description, { divider: true });
     const widgetWrapper = previewSection.createDiv({ cls: "weather-settings__preview-widget" });
     const row = widgetWrapper.createDiv({ cls: "ow-row weather-widget__row weather-settings__preview-row" });
-    row.style.backgroundSize = "100% 100%, 100% 100%, 100% 100%";
     this.previewRow = row;
     this.previewOverlay = row.createDiv({ cls: "ow-sun-overlay" });
     this.previewSunIconEl = row.createSpan({ cls: "ow-sun-overlay__icon" });
@@ -1157,7 +1201,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderGradientControlsContent(parent: HTMLElement, strings: LocaleStrings): void {
         this.gradientPreviewEl = this.createGradientPreview(parent);
-    this.gradientPreviewEl.style.backgroundSize = "100% 100%, 100% 100%, 100% 100%";
     this.refreshGradientPreview();
     this.renderGradientAccordion(parent, strings);
   }
@@ -1324,13 +1367,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
       sunriseMinutes,
       sunsetMinutes,
     });
-    this.gradientPreviewEl.style.backgroundColor = gradientState.backgroundColor;
-    this.gradientPreviewEl.style.backgroundImage = `${gradientState.temperatureGradient}, ${gradientState.weatherGradient}`;
-    this.gradientPreviewEl.style.backgroundSize = "100% 100%, 100% 100%";
-    this.gradientPreviewEl.style.backgroundRepeat = "no-repeat, no-repeat";
-    this.gradientPreviewEl.style.backgroundBlendMode = "normal, normal";
+    applyRowGradientStyles(this.gradientPreviewEl, gradientState);
   }
-  
+
   
   private refreshPreviewRow(): void {
     if (!this.previewRow) {
@@ -1384,10 +1423,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       sunriseMinutes: sunriseMinutesValue,
       sunsetMinutes: sunsetMinutesValue,
     });
-    this.previewRow.style.backgroundColor = gradientState.backgroundColor;
-    this.previewRow.style.backgroundImage = `${gradientState.temperatureGradient}, ${gradientState.weatherGradient}`;
-    this.previewRow.style.backgroundRepeat = "no-repeat, no-repeat";
-    this.previewRow.style.backgroundBlendMode = "normal, normal";
+    applyRowGradientStyles(this.previewRow, gradientState);
     if (this.previewOverlay) {
       const measuredPreviewWidth = this.previewRow.clientWidth || this.previewRow.offsetWidth;
       const rowWidthPx = Number.isFinite(measuredPreviewWidth) && (measuredPreviewWidth ?? 0) > 0
@@ -1403,24 +1439,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
         sunAltitudeDegrees: sunAltitude ?? undefined,
         rowWidthPx,
       });
-      this.previewOverlay.style.background = overlayState.background;
-      this.previewOverlay.style.backgroundBlendMode = overlayState.blendMode;
-      this.previewOverlay.style.backgroundRepeat = "no-repeat, no-repeat";
-      this.previewOverlay.style.backgroundSize = "100% 100%, 100% 100%";
-      this.previewOverlay.style.left = `${overlayState.leftPercent}%`;
-      this.previewOverlay.style.right = "auto";
-      this.previewOverlay.style.width = `${overlayState.widthPercent}%`;
-      this.previewOverlay.style.top = "0";
-      this.previewOverlay.style.bottom = "0";
+      applySunOverlayStyles(this.previewOverlay, overlayState);
       if (this.previewSunIconEl) {
         this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.plugin.settings.sunLayer.icon.monospaced));
         this.previewSunIconEl.textContent = overlayState.icon.symbol;
-        this.previewSunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
-        this.previewSunIconEl.style.top = `${overlayState.icon.topPercent}%`;
-        this.previewSunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
+        applySunIconStyles(this.previewSunIconEl, overlayState.icon);
         this.previewSunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
-        this.previewSunIconEl.style.color = overlayState.icon.color;
-        this.previewSunIconEl.style.opacity = `${overlayState.icon.opacity}`;
       }
     }
     const timeLabel = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
@@ -1449,7 +1473,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
       const shouldShowDate = this.plugin.settings.showDateWhenDifferent;
       this.previewDateEl.textContent = shouldShowDate ? dateLabel : "";
       this.previewDateEl.classList.toggle("is-hidden", !shouldShowDate);
-      this.previewDateEl.style.opacity = shouldShowDate ? "0.6" : "0";
     }
     const rawWeatherIcon = categoryStyle?.icon;
     const fallbackWeatherIcon =

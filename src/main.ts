@@ -65,7 +65,6 @@ export default class WeatherPlugin extends Plugin {
     this.refreshWeatherDataInBackground();
   }
   onunload(): void {
-    this.app.workspace.detachLeavesOfType(WEATHER_WIDGET_VIEW_TYPE);
     this.canvasBridge?.unregister();
     if (this.refreshIntervalId !== null) {
       window.clearInterval(this.refreshIntervalId);

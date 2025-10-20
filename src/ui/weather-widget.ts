@@ -9,7 +9,13 @@ import {
 } from "../settings";
 import { clamp } from "../utils/math";
 import { ensureHex, lerpColorGamma } from "../utils/color";
-import { buildSunOverlayState, computeGradientLayers } from "../utils/widget-render";
+import {
+  buildSunOverlayState,
+  computeGradientLayers,
+  type GradientLayerResult,
+  type SunOverlayIconState,
+  type SunOverlayState,
+} from "../utils/widget-render";
 import { mergeCityLists } from "../utils/city";
 import { computeSolarAltitude, timezoneOffsetFromIdentifier } from "../utils/solar";
 import {
@@ -558,11 +564,7 @@ export class WeatherWidget {
         sunsetMinutes,
       });
       const row = container.createDiv({ cls: "ow-row" });
-      row.style.backgroundColor = gradientState.backgroundColor;
-      row.style.backgroundImage = `${gradientState.temperatureGradient}, ${gradientState.weatherGradient}`;
-      row.style.backgroundRepeat = "no-repeat, no-repeat";
-      row.style.backgroundBlendMode = "normal, normal";
-      row.style.backgroundSize = "100% 100%, 100% 100%";
+      this.applyRowGradients(row, gradientState);
       const measuredRowWidth = row.clientWidth || row.offsetWidth;
       const rowWidthPx = Number.isFinite(measuredRowWidth) && (measuredRowWidth ?? 0) > 0
         ? (measuredRowWidth as number)
@@ -588,25 +590,13 @@ export class WeatherWidget {
         sunAltitudeDegrees: sunAltitude ?? undefined,
         rowWidthPx,
       });
-      overlay.style.background = overlayState.background;
-      overlay.style.backgroundBlendMode = overlayState.blendMode;
-      overlay.style.backgroundRepeat = "no-repeat, no-repeat";
-      overlay.style.backgroundSize = "100% 100%, 100% 100%";
-      overlay.style.left = `${overlayState.leftPercent}%`;
-      overlay.style.right = "auto";
-      overlay.style.width = `${overlayState.widthPercent}%`;
-      overlay.style.top = "0";
-      overlay.style.bottom = "0";
+      this.applySunOverlayStyles(overlay, overlayState);
       const sunIconEl = row.createSpan({ cls: "ow-sun-overlay__icon" });
       sunIconEl.setAttr("aria-hidden", "true");
       sunIconEl.classList.toggle("is-monospaced", Boolean(settings.sunLayer.icon.monospaced));
       sunIconEl.textContent = overlayState.icon.symbol;
-      sunIconEl.style.left = `${overlayState.icon.leftPercent}%`;
-      sunIconEl.style.top = `${overlayState.icon.topPercent}%`;
-      sunIconEl.style.transform = `translate(-50%, -50%) scale(${overlayState.icon.scale})`;
+      this.applySunIconStyles(sunIconEl, overlayState.icon);
       sunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
-      sunIconEl.style.color = overlayState.icon.color;
-      sunIconEl.style.opacity = `${overlayState.icon.opacity}`;
       const leftGroup = row.createDiv({ cls: "ow-row__group ow-row__group--left" });
       const weatherInfo = leftGroup.createDiv({ cls: "ow-weather-info" });
       if (weatherIcon.length > 0) {
@@ -626,6 +616,44 @@ export class WeatherWidget {
       }
       const temperatureEl = rightGroup.createDiv({ cls: "ow-temperature" });
       temperatureEl.textContent = temperatureLabel;
+    }
+  }
+
+  private applyRowGradients(target: HTMLElement, gradients: GradientLayerResult): void {
+    const backgroundColor = gradients.backgroundColor?.trim() ?? "";
+    const temperatureLayer = gradients.temperatureGradient?.trim() ?? "none";
+    const weatherLayer = gradients.weatherGradient?.trim() ?? "none";
+    const resolvedBackground = backgroundColor.length > 0 ? backgroundColor : "transparent";
+    target.style.setProperty("--ow-row-background-color", resolvedBackground);
+    target.style.setProperty("--ow-row-temperature-gradient", temperatureLayer);
+    target.style.setProperty("--ow-row-weather-gradient", weatherLayer);
+  }
+
+  private applySunOverlayStyles(target: HTMLElement, overlay: SunOverlayState): void {
+    const background = overlay.background?.trim() ?? "none";
+    const blendMode = overlay.blendMode?.trim() ?? "normal";
+    const leftPercent = Number.isFinite(overlay.leftPercent) ? overlay.leftPercent : 0;
+    const widthPercent = Number.isFinite(overlay.widthPercent) ? overlay.widthPercent : 100;
+    target.style.setProperty("--ow-overlay-background", background);
+    target.style.setProperty("--ow-overlay-blend-mode", blendMode);
+    target.style.setProperty("--ow-overlay-left", `${leftPercent}%`);
+    target.style.setProperty("--ow-overlay-width", `${widthPercent}%`);
+  }
+
+  private applySunIconStyles(target: HTMLElement, icon: SunOverlayIconState): void {
+    const leftPercent = Number.isFinite(icon.leftPercent) ? icon.leftPercent : 50;
+    const topPercent = Number.isFinite(icon.topPercent) ? icon.topPercent : 50;
+    const scale = Number.isFinite(icon.scale) ? icon.scale : 1;
+    const opacity = Number.isFinite(icon.opacity) ? icon.opacity : 1;
+    const color = icon.color?.trim() ?? "";
+    target.style.setProperty("--ow-sun-icon-left", `${leftPercent}%`);
+    target.style.setProperty("--ow-sun-icon-top", `${topPercent}%`);
+    target.style.setProperty("--ow-sun-icon-scale", scale.toString());
+    target.style.setProperty("--ow-sun-icon-opacity", opacity.toString());
+    if (color.length > 0) {
+      target.style.setProperty("--ow-sun-icon-color", color);
+    } else {
+      target.style.removeProperty("--ow-sun-icon-color");
     }
   }
 
