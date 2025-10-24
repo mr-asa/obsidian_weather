@@ -452,6 +452,8 @@ export default class WeatherPlugin extends Plugin {
             : defaults.temperatureGradient[0]?.color ?? "#9CA3AF",
           }));
       }
+    const unit = this.settings.temperatureUnit;
+    this.settings.temperatureUnit = unit === "fahrenheit" ? "fahrenheit" : defaults.temperatureUnit;
     this.settings.showDateWhenDifferent = Boolean(this.settings.showDateWhenDifferent);
     if (typeof this.settings.dateFormat !== "string" || this.settings.dateFormat.trim().length === 0) {
       this.settings.dateFormat = defaults.dateFormat;

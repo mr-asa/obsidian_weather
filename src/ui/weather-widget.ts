@@ -6,6 +6,7 @@ import {
   type WeatherWidgetSettings,
   type TimeOfDayKey,
   type CityLocation,
+  type TemperatureUnit,
 } from "../settings";
 import { clamp } from "../utils/math";
 import { ensureHex, lerpColorGamma } from "../utils/color";
@@ -53,6 +54,24 @@ function getTimeOfDay(hour: number): TimeOfDayKey {
   }
 
   return "night";
+}
+
+export function convertCelsiusToUnit(value: number, unit: TemperatureUnit): number {
+  return unit === "fahrenheit" ? (value * 9) / 5 + 32 : value;
+}
+
+export function formatTemperatureValue(
+  value: number | null | undefined,
+  unit: TemperatureUnit,
+): string {
+  if (value == null || Number.isNaN(value)) {
+    return "--";
+  }
+  const converted = convertCelsiusToUnit(value, unit);
+  const rounded = Math.round(converted);
+  const sign = rounded > 0 ? "+" : "";
+  const suffix = unit === "fahrenheit" ? "\u00b0F" : "\u00b0C";
+  return `${sign}${rounded}${suffix}`;
 }
 
 function tempToColor(temperature: number | null | undefined, stops: TemperatureColorStop[]): string {
@@ -524,9 +543,7 @@ export class WeatherWidget {
       );
       const [hours] = localTime.split(":");
       const hourValue = Number.parseInt(hours ?? "0", 10);
-      const temperatureLabel = snapshot.temperature == null || Number.isNaN(snapshot.temperature)
-        ? "--"
-        : `${snapshot.temperature > 0 ? "+" : ""}${Math.round(snapshot.temperature)}°`;
+      const temperatureLabel = formatTemperatureValue(snapshot.temperature, settings.temperatureUnit);
       const category = wmoToCategory(snapshot.weatherCode);
       const categoryStyle = settings.categoryStyles[category];
       const rawWeatherIcon = categoryStyle?.icon;

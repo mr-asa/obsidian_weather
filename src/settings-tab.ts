@@ -23,7 +23,7 @@ import {
   type SunOverlayIconState,
   type SunOverlayState,
 } from "./utils/widget-render";
-import { resolveTimePhaseColor } from "./ui/weather-widget";
+import { resolveTimePhaseColor, formatTemperatureValue } from "./ui/weather-widget";
 import { createId } from "./utils/id";
 import { extractDateComponents, formatDateComponents, normalizeDateFormat } from "./utils/date-format";
 const LAT_MIN = -90;
@@ -146,6 +146,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
   private previewWeatherIconEl?: HTMLElement;
   private previewWeatherTextEl?: HTMLElement;
   private previewTemperatureEl?: HTMLElement;
+  private previewTemperatureValueEl?: HTMLElement;
   private gradientPreviewEl?: HTMLDivElement;
   private updateTimeGradientPreview?: () => void;
   private updateWeatherGradientPreview?: () => void;
@@ -1148,24 +1149,20 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const temperatureSetting = new Setting(controls)
     .setName(strings.settings.preview.temperatureLabel)
       .setDesc(strings.settings.preview.temperatureHint);
-      const temperatureValue = temperatureSetting.controlEl.createSpan({ cls: "weather-settings__preview-value" });
-    const updateTemperatureLabel = () => {
-      const formatted = `${this.sampleTemperature > 0 ? '+' : ''}${this.sampleTemperature}°`;
-      temperatureValue.textContent = formatted;
-    };
+      this.previewTemperatureValueEl = temperatureSetting.controlEl.createSpan({ cls: "weather-settings__preview-value" });
     temperatureSetting.addSlider((slider) => {
             slider.setLimits(TEMP_MIN, TEMP_MAX, 1);
       slider.setValue(this.sampleTemperature);
       slider.setDynamicTooltip();
       slider.onChange((value) => {
                 this.sampleTemperature = Math.round(value);
-        updateTemperatureLabel();
+        this.refreshSampleTemperatureLabel();
         this.refreshPreviewRow();
         this.refreshGradientPreview();
       });
     });
     temperatureSetting.controlEl.querySelector("input[type=\"range\"]")?.classList.add("weather-settings__preview-slider--temperature");
-    updateTemperatureLabel();
+    this.refreshSampleTemperatureLabel();
     const weatherSetting = new Setting(controls)
     .setName(strings.settings.preview.weatherLabel)
       .setDesc(strings.settings.preview.weatherHint);
@@ -1488,9 +1485,20 @@ export class WeatherSettingsTab extends PluginSettingTab {
       this.previewWeatherTextEl.textContent = weatherLabel;
     }
     if (this.previewTemperatureEl) {
-      const temperatureLabel = `${this.sampleTemperature > 0 ? '+' : ''}${this.sampleTemperature}°`;
-      this.previewTemperatureEl.textContent = temperatureLabel;
+      this.previewTemperatureEl.textContent = formatTemperatureValue(
+        this.sampleTemperature,
+        this.plugin.settings.temperatureUnit,
+      );
     }
+  }
+  private refreshSampleTemperatureLabel(): void {
+    if (!this.previewTemperatureValueEl) {
+      return;
+    }
+    this.previewTemperatureValueEl.textContent = formatTemperatureValue(
+      this.sampleTemperature,
+      this.plugin.settings.temperatureUnit,
+    );
   }
   private sunPositionPercent(sunrise: number, sunset: number, localSeconds: number): number {
     if (sunrise >= sunset) {
@@ -1541,6 +1549,25 @@ export class WeatherSettingsTab extends PluginSettingTab {
         },
       },
     );
+    new Setting(section)
+    .setName(strings.settings.other.temperatureUnitLabel)
+      .setDesc(strings.settings.other.temperatureUnitDescription)
+      .addDropdown((dropdown) => {
+                dropdown.addOption("celsius", strings.settings.other.temperatureUnitOptions.celsius);
+        dropdown.addOption("fahrenheit", strings.settings.other.temperatureUnitOptions.fahrenheit);
+        dropdown.setValue(this.plugin.settings.temperatureUnit);
+        dropdown.onChange((value) => {
+                    const normalized = value === "fahrenheit" ? "fahrenheit" : "celsius";
+          if (this.plugin.settings.temperatureUnit === normalized) {
+            return;
+          }
+          this.plugin.settings.temperatureUnit = normalized;
+          void this.plugin.saveSettings();
+          this.refreshPreviewRow();
+          this.refreshSampleTemperatureLabel();
+          this.plugin.requestWidgetRefresh();
+        });
+      });
     const dateRow = section.createDiv({ cls: "weather-settings__date-row" });
     new Setting(dateRow)
     .setName(strings.settings.other.showDateLabel)

@@ -1,5 +1,5 @@
 import { DEFAULT_LOCALE, type LocaleCode } from "./types";
-import type { TimeOfDayKey, WeatherCategory } from "../settings";
+import type { TemperatureUnit, TimeOfDayKey, WeatherCategory } from "../settings";
 import type { MonthNameSet } from "../utils/date-format";
 
 export interface LocaleStrings {
@@ -144,12 +144,15 @@ export interface LocaleStrings {
         power: string;
       };
     };
-    other: {
-      heading: string;
-      description: string;
-      showDateLabel: string;
-      showDateDescription: string;
-      dateFormatLabel: string;
+      other: {
+        heading: string;
+        description: string;
+        temperatureUnitLabel: string;
+        temperatureUnitDescription: string;
+        temperatureUnitOptions: Record<TemperatureUnit, string>;
+        showDateLabel: string;
+        showDateDescription: string;
+        dateFormatLabel: string;
       dateFormatDescription: string;
     };
     reset: {
@@ -244,7 +247,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         description: "Adjust sample conditions to see how gradients blend together.",
         timeLabel: "Local time",
         timeHint: "Slide through the day to see sun highlights.",
-        temperatureLabel: "Temperature (°C)",
+        temperatureLabel: "Temperature",
         temperatureHint: "Values outside the scale are clamped.",
         weatherLabel: "Weather",
         weatherHint: "Uses the palette color and icon for the selected condition.",
@@ -361,6 +364,12 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       other: {
         heading: "Other",
         description: "Miscellaneous options for the widget.",
+        temperatureUnitLabel: "Temperature unit",
+        temperatureUnitDescription: "Choose how temperatures are displayed.",
+        temperatureUnitOptions: {
+          celsius: "Celsius (\u00b0C)",
+          fahrenheit: "Fahrenheit (\u00b0F)",
+        },
         showDateLabel: "Show date when different",
         showDateDescription: "Append the local date whenever it differs from your current day.",
         dateFormatLabel: "Date format",
@@ -486,7 +495,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
         description: "Проверьте, как градиенты взаимодействуют при разных условиях.",
         timeLabel: "Локальное время",
         timeHint: "Двигайте ползунок, чтобы увидеть подсветку солнца.",
-        temperatureLabel: "Температура (°C)",
+        temperatureLabel: "Температура",
         temperatureHint: "Значения вне диапазона будут ограничены.",
         weatherLabel: "Погода",
         weatherHint: "Используется цвет и иконка выбранного состояния.",
@@ -603,6 +612,12 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       other: {
         heading: "Прочее",
         description: "Дополнительные опции виджета.",
+        temperatureUnitLabel: "Единицы температуры",
+        temperatureUnitDescription: "Выберите, в каких единицах показывать температуру.",
+        temperatureUnitOptions: {
+          celsius: "Цельсий (°C)",
+          fahrenheit: "Фаренгейт (°F)",
+        },
         showDateLabel: "Показывать дату, когда день отличается",
         showDateDescription: "Добавлять локальную дату, если она отличается от текущей.",
         dateFormatLabel: "Формат даты",

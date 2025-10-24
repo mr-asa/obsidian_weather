@@ -110,6 +110,8 @@ export interface DaySpanSettings {
     min: number;
   max: number;
 }
+export type TemperatureUnit = "celsius" | "fahrenheit";
+
 export interface WeatherWidgetSettings {
     language: LocaleCode;
   cities: CityLocation[];
@@ -131,6 +133,7 @@ export interface WeatherWidgetSettings {
   leftPanel: LeftPanelSettings;
   daySpan: DaySpanSettings;
   temperatureGradient: TemperatureColorStop[];
+  temperatureUnit: TemperatureUnit;
   showDateWhenDifferent: boolean;
   dateFormat: string;
 }
@@ -267,6 +270,7 @@ export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
     { temperature: 30, color: "#F37676" },
     { temperature: 40, color: "#ff4242" },
   ],
+  temperatureUnit: "celsius",
   showDateWhenDifferent: true,
   dateFormat: "dd.MM",
 };
