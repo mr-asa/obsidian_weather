@@ -62,7 +62,7 @@ export default class WeatherPlugin extends Plugin {
     this.requestWidgetRefresh();
     this.scheduleWeatherRefresh();
     this.scheduleWidgetMinuteUpdates();
-    this.refreshWeatherDataInBackground();
+    void this.refreshWeatherDataInBackground();
   }
   onunload(): void {
     this.canvasBridge?.unregister();
@@ -158,17 +158,15 @@ export default class WeatherPlugin extends Plugin {
       this.requestWidgetRefresh();
     }
   }
-  private refreshWeatherDataInBackground(): void {
-    void (async () => {
-      try {
-        const updated = await this.refreshWeatherData();
-        if (updated) {
-          this.requestWidgetRefresh();
-        }
-      } catch (error) {
-        console.error("WeatherPlugin: initial weather refresh failed", error);
+  private async refreshWeatherDataInBackground(): Promise<void> {
+    try {
+      const updated = await this.refreshWeatherData();
+      if (updated) {
+        this.requestWidgetRefresh();
       }
-    })();
+    } catch (error) {
+      console.error("WeatherPlugin: initial weather refresh failed", error);
+    }
   }
   private unregisterExistingViewType(): void {
     const workspace = this.app.workspace as unknown as {

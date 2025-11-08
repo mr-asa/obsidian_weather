@@ -5,15 +5,15 @@ export function registerCommands(plugin: WeatherPlugin, canvasBridge: CanvasBrid
   const strings = plugin.getStrings();
 
   plugin.addCommand({
-    id: "weather-widget-open-tab",
+    id: "open-tab",
     name: strings.commands.openTab,
     callback: () => {
-      plugin.activateView();
+      void plugin.activateView();
     },
   });
 
   plugin.addCommand({
-    id: "weather-widget-insert-canvas",
+    id: "insert-canvas",
     name: strings.commands.insertCanvas,
     callback: () => {
       canvasBridge.insertWidgetPlaceholder();

@@ -1,4 +1,4 @@
-import { Notice, WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice } from "obsidian";
 import type WeatherPlugin from "../main";
 
 interface CanvasTextNodeOptions {
@@ -42,14 +42,11 @@ export class CanvasBridge {
   }
 
   private getActiveCanvasView(): CanvasView | null {
-    const leaf: WorkspaceLeaf | null = this.plugin.app.workspace.activeLeaf ?? null;
-    const view = leaf?.view as CanvasView | undefined;
-
-    if (view?.getViewType() !== "canvas") {
+    const view = this.plugin.app.workspace.getActiveViewOfType(ItemView);
+    if (!view || view.getViewType() !== "canvas") {
       return null;
     }
-
-    return view;
+    return view as unknown as CanvasView;
   }
 
   unregister(): void {

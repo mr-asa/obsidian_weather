@@ -583,9 +583,10 @@ export class WeatherWidget {
       const row = container.createDiv({ cls: "ow-row" });
       this.applyRowGradients(row, gradientState);
       const measuredRowWidth = row.clientWidth || row.offsetWidth;
-      const rowWidthPx = Number.isFinite(measuredRowWidth) && (measuredRowWidth ?? 0) > 0
-        ? (measuredRowWidth as number)
-        : (this.host?.clientWidth || container.clientWidth || 600);
+      const rowWidthPx =
+        Number.isFinite(measuredRowWidth) && measuredRowWidth > 0
+          ? measuredRowWidth
+          : this.host?.clientWidth || container.clientWidth || 600;
       const overlay = row.createDiv({ cls: "ow-sun-overlay" });
       const nowMinutes = timezone
         ? minutesOfDayInTimezone(now, timezone)

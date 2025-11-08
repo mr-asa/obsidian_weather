@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Modal, PluginSettingTab, Setting } from "obsidian";
 import type WeatherPlugin from "./main";
 import type { LocaleStrings } from "./i18n/strings";
 import type { LocaleCode } from "./i18n/types";
@@ -12,7 +12,7 @@ import {
   type TimeOfDayKey,
   type WeatherProviderId,
 } from "./settings";
-import { clamp, normalize } from "./utils/math";
+import { clamp } from "./utils/math";
 import { ensureHex, lerpColorGamma } from "./utils/color";
 import { DEFAULT_ALPHA_EASING_PROFILE, type AlphaEasingProfile } from "./utils/alpha-gradient";
 import { computeSolarAltitude } from "./utils/solar";
@@ -181,6 +181,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
             this.renderTemperatureGradientContent(body, strings);
     });
     this.renderOtherSection(containerEl, strings);
+    this.renderResetSection(containerEl, strings);
   }
   private appendSectionHeader(
     container: HTMLElement,
@@ -188,17 +189,15 @@ export class WeatherSettingsTab extends PluginSettingTab {
     description: string | null | undefined,
     options: { divider?: boolean } = {},
   ): void {
-        const header = container.createDiv({ cls: "weather-settings__section-header" });
-    header.createEl("h3", { text: title, cls: "weather-settings__section-header-title" });
     const desc = (description ?? "").trim();
-    const descClasses = ["weather-settings__section-header-description"];
-    if (desc.length === 0) {
-      descClasses.push("is-empty");
+    const heading = new Setting(container).setName(title).setDesc(desc).setHeading();
+    heading.settingEl.addClass("weather-settings__section-header");
+    if (heading.descEl) {
+      heading.descEl.addClass("weather-settings__section-header-description");
+      if (desc.length === 0) {
+        heading.descEl.addClass("is-empty");
+      }
     }
-    header.createEl("p", {
-      text: desc,
-      cls: descClasses.join(" "),
-    });
     if (options.divider) {
             container.createDiv({ cls: "weather-settings__section-divider" });
     }
@@ -269,14 +268,14 @@ export class WeatherSettingsTab extends PluginSettingTab {
       return this.plugin.settings.weatherProviderApiKeys;
     };
 
-    let activeProvider = this.plugin.settings.weatherProvider as WeatherProviderId;
+    let activeProvider = this.plugin.settings.weatherProvider;
 
     const persistActiveProviderKey = () => {
       const keys = ensureProviderKeyMap();
       const sanitized = apiInput.disabled ? "" : apiInput.value.trim();
       apiInput.value = sanitized;
       keys[activeProvider] = sanitized;
-      if (activeProvider === (this.plugin.settings.weatherProvider as WeatherProviderId)) {
+      if (activeProvider === this.plugin.settings.weatherProvider) {
         this.plugin.settings.weatherProviderApiKey = sanitized;
       }
     };
@@ -303,7 +302,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     };
 
     const applyProviderState = () => {
-      const provider = this.plugin.settings.weatherProvider as WeatherProviderId;
+      const provider = this.plugin.settings.weatherProvider;
       activeProvider = provider;
       providerSelect.value = provider;
       updateProviderLink(provider);
@@ -330,9 +329,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
       apiHint.classList.toggle("is-hidden", description.trim().length === 0 || !meta.requiresKey);
     };
 
-    providerSelect.addEventListener("change", async (event) => {
-            const target = event.target as HTMLSelectElement;
-      persistActiveProviderKey();
+    const handleProviderChange = async (target: HTMLSelectElement): Promise<void> => {
+            persistActiveProviderKey();
       const nextProvider = target.value as WeatherProviderId;
       this.plugin.settings.weatherProvider = nextProvider;
       ensureProviderKeyMap();
@@ -342,15 +340,27 @@ export class WeatherSettingsTab extends PluginSettingTab {
       await this.plugin.saveSettings();
       await this.plugin.refreshWeatherData();
       this.plugin.requestWidgetRefresh();
+    };
+
+    providerSelect.addEventListener("change", (event) => {
+            const target = event.target as HTMLSelectElement | null;
+      if (!target) {
+        return;
+      }
+      void handleProviderChange(target);
     });
 
-    apiInput.addEventListener("change", async () => {
+    const handleApiInputChange = async (): Promise<void> => {
             if (apiInput.disabled) {
                 return;
       }
       apiInput.value = apiInput.value.trim();
       persistActiveProviderKey();
       await this.plugin.saveSettings();
+    };
+
+    apiInput.addEventListener("change", () => {
+            void handleApiInputChange();
     });
 
     applyProviderState();
@@ -1601,23 +1611,38 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderResetSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    section.createEl("h3", { text: strings.settings.reset.heading });
-    section.createEl("p", { text: strings.settings.reset.description, cls: "weather-settings__hint" });
     new Setting(section)
-    .addButton((button) => {
+    .setName(strings.settings.reset.heading)
+      .setDesc(strings.settings.reset.description)
+      .setHeading();
+    new Setting(section)
+      .addButton((button) => {
                 button
         .setButtonText(strings.actions.reset)
           .setWarning()
-          .onClick(async () => {
-                        if (!confirm(strings.settings.reset.confirm)) {
-                            return;
-            }
-            button.setDisabled(true);
-            await this.plugin.resetSettings();
-            this.display();
+          .onClick(() => {
+                        void (async () => {
+              const confirmed = await this.showConfirmationModal({
+                message: strings.settings.reset.confirm,
+                confirmLabel: strings.actions.reset,
+                cancelLabel: strings.actions.cancel,
+              });
+              if (!confirmed) {
+                return;
+              }
+              button.setDisabled(true);
+              await this.plugin.resetSettings();
+              this.display();
+            })();
           });
         });
     }
+  private showConfirmationModal(options: { message: string; confirmLabel: string; cancelLabel: string }): Promise<boolean> {
+        return new Promise((resolve) => {
+      const modal = new WeatherConfirmationModal(this.app, options, resolve);
+      modal.open();
+    });
+  }
   
   private normalizeAlphaProfile(value: string): AlphaEasingProfile {
         return ALPHA_PROFILE_OPTIONS.includes(value as AlphaEasingProfile)
@@ -1726,5 +1751,43 @@ export class WeatherSettingsTab extends PluginSettingTab {
       });
     });
     return setting;
+  }
+}
+
+class WeatherConfirmationModal extends Modal {
+  private resolved = false;
+  constructor(
+    app: App,
+    private readonly options: { message: string; confirmLabel: string; cancelLabel: string },
+    private readonly onResolve: (result: boolean) => void,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("p", { text: this.options.message, cls: "weather-settings__confirm-message" });
+    const buttonRow = contentEl.createDiv({ cls: "weather-settings__confirm-buttons" });
+    const confirmButton = buttonRow.createEl("button", { cls: "mod-cta", text: this.options.confirmLabel });
+    confirmButton.addEventListener("click", () => this.closeWith(true));
+    const cancelButton = buttonRow.createEl("button", { text: this.options.cancelLabel });
+    cancelButton.addEventListener("click", () => this.closeWith(false));
+  }
+
+  onClose(): void {
+    if (!this.resolved) {
+      this.onResolve(false);
+    }
+    this.contentEl.empty();
+  }
+
+  private closeWith(result: boolean): void {
+    if (this.resolved) {
+      return;
+    }
+    this.resolved = true;
+    this.onResolve(result);
+    this.close();
   }
 }

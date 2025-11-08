@@ -26,13 +26,15 @@ export class WeatherWidgetView extends ItemView {
     return "cloud";
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): Promise<void> {
     this.widget.mount(this.containerEl);
+    return Promise.resolve();
   }
 
-  async onClose(): Promise<void> {
+  onClose(): Promise<void> {
     this.widget.unmount();
     this.containerEl.empty();
+    return Promise.resolve();
   }
 
   refresh(): void {

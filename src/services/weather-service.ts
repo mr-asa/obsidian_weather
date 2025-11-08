@@ -1,3 +1,4 @@
+import { requestUrl } from "obsidian";
 import type { CityLocation, WeatherProviderId } from "../settings";
 export interface WeatherSnapshot {
   cityId: string;
@@ -149,11 +150,11 @@ export class WeatherService {
   private async fetchFromOpenMeteo(city: CityLocation, now: number): Promise<WeatherSnapshot | null> {
     const url = createOpenMeteoUrl(city);
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
+      const response = await requestUrl({ url });
+      if (response.status < 200 || response.status >= 300) {
         throw new Error(`Open-Meteo response ${response.status}`);
       }
-      const data = await response.json() as {
+      const data = response.json as {
         current?: { temperature_2m?: number; weather_code?: number };
         daily?: { sunrise?: string[]; sunset?: string[] };
         timezone?: string;
@@ -182,11 +183,11 @@ export class WeatherService {
     }
     const url = createOpenWeatherUrl(city, this.apiKey);
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
+        const response = await requestUrl({ url });
+        if (response.status < 200 || response.status >= 300) {
         throw new Error(`OpenWeatherMap response ${response.status}`);
       }
-      const data = await response.json() as {
+      const data = response.json as {
         main?: { temp?: number };
         weather?: Array<{ id?: number }>;
         sys?: { sunrise?: number; sunset?: number };

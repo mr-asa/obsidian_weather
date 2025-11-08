@@ -38,7 +38,7 @@ function parseInlineCities(source: string): ParsedInlineCities {
     const match = CITY_LINE_REGEX.exec(trimmed);
     const lineNumber = i + 1;
     if (!match) {
-      errors.push(`Line ${lineNumber}: expected "\"Name\" <latitude> <longitude>"`);
+      errors.push(`Line ${lineNumber}: expected "Name" <latitude> <longitude>`);
       continue;
     }
     const label = match[1].trim();

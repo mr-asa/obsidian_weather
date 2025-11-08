@@ -1,6 +1,6 @@
 {
   "name": "obsidian-weather",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Weather widget plugin scaffold for Obsidian.",
   "main": "main.js",
   "scripts": {

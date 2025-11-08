@@ -1,7 +1,7 @@
 {
   "id": "weather-widget",
   "name": "Weather Widget",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "minAppVersion": "1.4.0",
   "description": "Weather widget for display in notes, Canvas, and a separate tab.",
   "author": "mr-asa",

@@ -161,12 +161,13 @@ export interface LocaleStrings {
       confirm: string;
     };
   };
-  actions: {
-    remove: string;
-    moveUp: string;
-    moveDown: string;
-    reset: string;
-  };
+    actions: {
+      remove: string;
+      moveUp: string;
+      moveDown: string;
+      reset: string;
+      cancel: string;
+    };
   sunPhases: Record<TimeOfDayKey, string>;
   weatherConditions: Record<WeatherCategory, string>;
   notices: {
@@ -386,6 +387,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       moveUp: "Move up",
       moveDown: "Move down",
       reset: "Reset",
+      cancel: "Cancel",
     },
     sunPhases: {
       morning: "Morning",
@@ -634,6 +636,7 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       moveUp: "Вверх",
       moveDown: "Вниз",
       reset: "Сбросить",
+      cancel: "Отмена",
     },
     sunPhases: {
       morning: "Утро",
