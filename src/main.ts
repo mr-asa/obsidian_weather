@@ -95,7 +95,7 @@ export default class WeatherPlugin extends Plugin {
             leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
       await leaf.setViewState({ type: WEATHER_WIDGET_VIEW_TYPE, active: true });
     }
-    workspace.revealLeaf(leaf);
+    await workspace.revealLeaf(leaf);
   }
   registerWidget(widget: WeatherWidget): void {
         this.widgetInstances.add(widget);
