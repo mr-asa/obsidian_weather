@@ -1,6 +1,6 @@
 import { App, Modal, PluginSettingTab, Setting } from "obsidian";
 import type WeatherPlugin from "./main";
-import type { LocaleStrings } from "./i18n/strings";
+import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
 import type { LocaleCode } from "./i18n/types";
 import {
     DEFAULT_SETTINGS,
@@ -11,6 +11,7 @@ import {
   type TemperatureColorStop,
   type TimeOfDayKey,
   type WeatherProviderId,
+  type WeatherWidgetSettings,
 } from "./settings";
 import { clamp } from "./utils/math";
 import { ensureHex, lerpColorGamma } from "./utils/color";
@@ -153,16 +154,69 @@ export class WeatherSettingsTab extends PluginSettingTab {
   private updateTemperatureGradientPreview?: () => void;
   private temperatureTableBody?: HTMLTableSectionElement;
   private latestStrings?: LocaleStrings;
+  private stagedSettings?: WeatherWidgetSettings;
+  private hasPendingChanges = false;
+  private shouldResetOnClose = false;
   constructor(app: App, plugin: WeatherPlugin) {
         super(app, plugin);
     this.plugin = plugin;
+  }
+
+  private cloneSettings(source: WeatherWidgetSettings): WeatherWidgetSettings {
+        return JSON.parse(JSON.stringify(source)) as WeatherWidgetSettings;
+  }
+
+  private ensureStagedSettings(): WeatherWidgetSettings {
+        if (!this.stagedSettings) {
+            this.stagedSettings = this.cloneSettings(this.plugin.settings);
+    }
+    return this.stagedSettings;
+  }
+
+  private get editableSettings(): WeatherWidgetSettings {
+        return this.ensureStagedSettings();
+  }
+
+  private markSettingsDirty(): void {
+        this.hasPendingChanges = true;
+  }
+
+  private resetDraftToDefaults(): void {
+        this.stagedSettings = this.cloneSettings(DEFAULT_SETTINGS);
+    this.shouldResetOnClose = true;
+    this.hasPendingChanges = false;
+  }
+
+  private async commitSettingsIfNeeded(): Promise<void> {
+        const staged = this.stagedSettings ? this.cloneSettings(this.stagedSettings) : null;
+    const pendingReset = this.shouldResetOnClose;
+    const hasChanges = this.hasPendingChanges;
+    this.stagedSettings = undefined;
+    this.shouldResetOnClose = false;
+    this.hasPendingChanges = false;
+    if (pendingReset) {
+            await this.plugin.resetSettings();
+      if (!hasChanges) {
+                return;
+      }
+    }
+    if (!staged || (!hasChanges && !pendingReset)) {
+            return;
+    }
+    this.plugin.settings = staged;
+    await this.plugin.saveSettings();
+  }
+
+  private getStringsForRendering(): LocaleStrings {
+        const strings = getLocaleStrings(this.editableSettings.language);
+    this.latestStrings = strings;
+    return strings;
   }
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
     this.temperatureTableBody = undefined;
-    const strings = this.plugin.getStrings();
-    this.latestStrings = strings;
+    const strings = this.getStringsForRendering();
     this.renderLocalizationSection(containerEl, strings);
     this.renderWidgetUpdatesSection(containerEl, strings);
     this.renderLocationsSection(containerEl, strings);
@@ -199,10 +253,14 @@ export class WeatherSettingsTab extends PluginSettingTab {
             (Object.keys(strings.languageNames) as LocaleCode[]).forEach((code) => {
                 dropdown.addOption(code, strings.languageNames[code]);
       });
-      dropdown.setValue(this.plugin.settings.language);
-      dropdown.onChange(async (value) => {
-                this.plugin.settings.language = value as LocaleCode;
-        await this.plugin.saveSettings();
+      dropdown.setValue(this.editableSettings.language);
+      dropdown.onChange((value) => {
+                const nextLocale = value as LocaleCode;
+        if (this.editableSettings.language === nextLocale) {
+                    return;
+        }
+        this.editableSettings.language = nextLocale;
+        this.markSettingsDirty();
         this.display();
       });
     });
@@ -246,7 +304,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     Object.entries(strings.settings.widgetUpdates.providerOptions).forEach(([value, label]) => {
             providerSelect.createEl("option", { value, text: label });
     });
-    providerSelect.value = this.plugin.settings.weatherProvider;
+    providerSelect.value = this.editableSettings.weatherProvider;
     const intervalColumn = row.createDiv({ cls: "weather-settings__widget-interval" });
     const intervalLabel = intervalColumn.createEl("label", { cls: "weather-settings__field" });
     intervalLabel.createSpan({ text: strings.settings.widgetUpdates.intervalLabel });
@@ -255,18 +313,24 @@ export class WeatherSettingsTab extends PluginSettingTab {
       attr: { type: "number", min: "1", step: "1" },
     });
     intervalLabel.createSpan({ cls: "weather-settings__hint weather-settings__hint--compact", text: strings.settings.widgetUpdates.intervalHint });
-    intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
+    intervalInput.value = String(this.editableSettings.weatherCacheMinutes);
     const commitInterval = () => {
             const parsed = Number(intervalInput.value);
       if (!Number.isFinite(parsed) || parsed <= 0) {
-                intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
+                intervalInput.value = String(this.editableSettings.weatherCacheMinutes);
         return;
       }
       const normalized = Math.max(1, Math.round(parsed));
-      this.plugin.settings.weatherCacheMinutes = normalized;
-      this.plugin.settings.autoRefreshMinutes = normalized;
+      const previousCache = this.editableSettings.weatherCacheMinutes;
+      const previousAuto = this.editableSettings.autoRefreshMinutes;
+      if (previousCache === normalized && previousAuto === normalized) {
+                intervalInput.value = String(normalized);
+        return;
+      }
+      this.editableSettings.weatherCacheMinutes = normalized;
+      this.editableSettings.autoRefreshMinutes = normalized;
       intervalInput.value = String(normalized);
-      void this.plugin.saveSettings();
+      this.markSettingsDirty();
     };
     intervalInput.addEventListener("change", commitInterval);
     intervalInput.addEventListener("blur", commitInterval);
@@ -279,21 +343,30 @@ export class WeatherSettingsTab extends PluginSettingTab {
     });
 
     const ensureProviderKeyMap = (): Record<string, string> => {
-      if (!this.plugin.settings.weatherProviderApiKeys || typeof this.plugin.settings.weatherProviderApiKeys !== "object") {
-        this.plugin.settings.weatherProviderApiKeys = { ...DEFAULT_SETTINGS.weatherProviderApiKeys };
+      if (!this.editableSettings.weatherProviderApiKeys || typeof this.editableSettings.weatherProviderApiKeys !== "object") {
+        this.editableSettings.weatherProviderApiKeys = { ...DEFAULT_SETTINGS.weatherProviderApiKeys };
       }
-      return this.plugin.settings.weatherProviderApiKeys;
+      return this.editableSettings.weatherProviderApiKeys;
     };
 
-    let activeProvider = this.plugin.settings.weatherProvider;
+    let activeProvider = this.editableSettings.weatherProvider;
 
     const persistActiveProviderKey = () => {
       const keys = ensureProviderKeyMap();
       const sanitized = apiInput.disabled ? "" : apiInput.value.trim();
       apiInput.value = sanitized;
-      keys[activeProvider] = sanitized;
-      if (activeProvider === this.plugin.settings.weatherProvider) {
-        this.plugin.settings.weatherProviderApiKey = sanitized;
+      const previousValue = typeof keys[activeProvider] === "string" ? keys[activeProvider] : "";
+      let dirty = false;
+      if (previousValue !== sanitized) {
+                keys[activeProvider] = sanitized;
+        dirty = true;
+      }
+      if (activeProvider === this.editableSettings.weatherProvider && this.editableSettings.weatherProviderApiKey !== sanitized) {
+                this.editableSettings.weatherProviderApiKey = sanitized;
+        dirty = true;
+      }
+      if (dirty) {
+                this.markSettingsDirty();
       }
     };
 
@@ -319,7 +392,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     };
 
     const applyProviderState = () => {
-      const provider = this.plugin.settings.weatherProvider;
+      const provider = this.editableSettings.weatherProvider;
       activeProvider = provider;
       providerSelect.value = provider;
       updateProviderLink(provider);
@@ -334,24 +407,34 @@ export class WeatherSettingsTab extends PluginSettingTab {
       } else {
         keys[provider] = storedValue;
       }
-      this.plugin.settings.weatherProviderApiKey = storedValue;
+      this.editableSettings.weatherProviderApiKey = storedValue;
       apiInput.value = storedValue;
       apiInput.disabled = !meta.requiresKey;
       apiInput.required = meta.requiresKey;
       apiColumn.classList.toggle("is-placeholder", !meta.requiresKey);
     };
 
-    const handleProviderChange = async (target: HTMLSelectElement): Promise<void> => {
+    const handleProviderChange = (target: HTMLSelectElement): void => {
             persistActiveProviderKey();
       const nextProvider = target.value as WeatherProviderId;
-      this.plugin.settings.weatherProvider = nextProvider;
-      ensureProviderKeyMap();
-      const nextValue = this.plugin.settings.weatherProviderApiKeys?.[nextProvider] ?? "";
-      this.plugin.settings.weatherProviderApiKey = nextValue;
+      if (this.editableSettings.weatherProvider === nextProvider) {
+                applyProviderState();
+        return;
+      }
+      const keys = ensureProviderKeyMap();
+      const meta = PROVIDER_META[nextProvider] ?? { requiresKey: false };
+      let nextValue = typeof keys[nextProvider] === "string" ? keys[nextProvider].trim() : "";
+      if (!meta.requiresKey) {
+                nextValue = "";
+        keys[nextProvider] = "";
+      } else {
+                keys[nextProvider] = nextValue;
+      }
+      this.editableSettings.weatherProvider = nextProvider;
+      this.editableSettings.weatherProviderApiKey = nextValue;
+      activeProvider = nextProvider;
+      this.markSettingsDirty();
       applyProviderState();
-      await this.plugin.saveSettings();
-      await this.plugin.refreshWeatherData();
-      this.plugin.requestWidgetRefresh();
     };
 
     providerSelect.addEventListener("change", (event) => {
@@ -359,20 +442,19 @@ export class WeatherSettingsTab extends PluginSettingTab {
       if (!target) {
         return;
       }
-      void handleProviderChange(target);
+      handleProviderChange(target);
     });
 
-    const handleApiInputChange = async (): Promise<void> => {
+    const handleApiInputChange = (): void => {
             if (apiInput.disabled) {
                 return;
       }
       apiInput.value = apiInput.value.trim();
       persistActiveProviderKey();
-      await this.plugin.saveSettings();
     };
 
     apiInput.addEventListener("change", () => {
-            void handleApiInputChange();
+            handleApiInputChange();
     });
 
     applyProviderState();
@@ -388,13 +470,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
             button
         .setButtonText(strings.settings.locations.addButtonLabel)
           .onClick(() => {
-                        this.plugin.settings.cities.push({
+                        this.editableSettings.cities.push({
                             id: createId("city"),
               label: strings.settings.locations.defaultLabel,
               latitude: 0,
               longitude: 0,
             });
-            void this.plugin.saveSettings();
+            this.markSettingsDirty();
             this.display();
           });
       });
@@ -410,14 +492,14 @@ export class WeatherSettingsTab extends PluginSettingTab {
             headRow.appendChild(document.createElement("th")).textContent = header;
     });
     const body = table.createTBody();
-    if (this.plugin.settings.cities.length === 0) {
+    if (this.editableSettings.cities.length === 0) {
             const emptyRow = body.insertRow();
       const cell = emptyRow.insertCell();
       cell.colSpan = 4;
       cell.className = "weather-settings__empty";
       cell.textContent = strings.settings.locations.emptyState;
     } else {
-            this.plugin.settings.cities.forEach((city, index) => {
+            this.editableSettings.cities.forEach((city, index) => {
                 const row = body.insertRow();
         this.renderCityRow(row, city, index, strings);
       });
@@ -428,7 +510,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const labelInput = labelCell.createEl("input", { cls: "weather-settings__table-input", attr: { type: "text" } });
     labelInput.value = city.label;
     const commitLabel = () => {
-            const list = this.plugin.settings.cities;
+            const list = this.editableSettings.cities;
       const target = list[index];
       if (!target) {
                 return;
@@ -440,12 +522,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
       }
       target.label = value;
       city.label = value;
-      void this.plugin.saveSettings().then(() => {
-                const latest = this.plugin.settings.cities[index];
-        if (latest) {
-                    labelInput.value = latest.label;
-        }
-      });
+      labelInput.value = value;
+      this.markSettingsDirty();
     };
     labelInput.addEventListener("change", commitLabel);
     labelInput.addEventListener("blur", commitLabel);
@@ -472,7 +550,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
             cls: "weather-settings__table-button weather-settings__table-button--icon",
       text: "↓",
     });
-    down.disabled = index === this.plugin.settings.cities.length - 1;
+    down.disabled = index === this.editableSettings.cities.length - 1;
     down.addEventListener("click", () => {
             this.swapCities(index, index + 1);
     });
@@ -481,8 +559,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
       text: strings.actions.remove,
     });
     remove.addEventListener("click", () => {
-            this.plugin.settings.cities.splice(index, 1);
-      void this.plugin.saveSettings();
+            this.editableSettings.cities.splice(index, 1);
+      this.markSettingsDirty();
       this.display();
     });
   }
@@ -510,15 +588,19 @@ export class WeatherSettingsTab extends PluginSettingTab {
                 return;
       }
       const clamped = Math.max(min, Math.min(max, parsed));
-      const list = this.plugin.settings.cities;
+      const list = this.editableSettings.cities;
       const target = list[index];
       if (!target) {
                 return;
       }
       target[key] = clamped;
+      if (city[key] === clamped) {
+                input.value = String(clamped);
+        return;
+      }
       city[key] = clamped;
       input.value = String(clamped);
-      void this.plugin.saveSettings();
+      this.markSettingsDirty();
     };
     input.addEventListener("input", () => {
             commitValue(input.value);
@@ -528,27 +610,30 @@ export class WeatherSettingsTab extends PluginSettingTab {
     });
   }
   private swapCities(source: number, target: number): void {
-        const list = this.plugin.settings.cities;
+        const list = this.editableSettings.cities;
     if (target < 0 || target >= list.length) {
             return;
     }
     [list[source], list[target]] = [list[target], list[source]];
-    void this.plugin.saveSettings();
+    this.markSettingsDirty();
     this.display();
   }
   private renderTimePaletteContent(parent: HTMLElement, strings: LocaleStrings): void {
-    if (!this.plugin.settings.timeIcons) {
-            this.plugin.settings.timeIcons = { ...DEFAULT_SETTINGS.timeIcons };
+    if (!this.editableSettings.timeIcons) {
+            this.editableSettings.timeIcons = { ...DEFAULT_SETTINGS.timeIcons };
     }
         const grid = parent.createDiv({ cls: "weather-settings__color-grid" });
     TIME_OF_DAY_KEYS.forEach((phase) => {
             const setting = new Setting(grid).setName(strings.sunPhases[phase]);
       setting.addColorPicker((picker) =>
         picker
-        .setValue(this.plugin.settings.timeBaseColors[phase])
+        .setValue(this.editableSettings.timeBaseColors[phase])
           .onChange((value) => {
-                        this.plugin.settings.timeBaseColors[phase] = value;
-            void this.plugin.saveSettings();
+                        if (this.editableSettings.timeBaseColors[phase] === value) {
+                            return;
+            }
+            this.editableSettings.timeBaseColors[phase] = value;
+            this.markSettingsDirty();
             this.updateTimeGradientPreview?.();
             this.refreshPreviewRow();
           }));
@@ -556,11 +641,14 @@ export class WeatherSettingsTab extends PluginSettingTab {
                 text.inputEl.maxLength = 5;
         text.inputEl.size = 5;
         text.inputEl.classList.add("weather-settings__icon-input");
-        text.setValue(this.plugin.settings.timeIcons?.[phase] ?? DEFAULT_SETTINGS.timeIcons[phase]);
+        text.setValue(this.editableSettings.timeIcons?.[phase] ?? DEFAULT_SETTINGS.timeIcons[phase]);
         text.onChange((value) => {
                     const trimmed = value.trim();
-          this.plugin.settings.timeIcons[phase] = trimmed;
-          void this.plugin.saveSettings();
+          if (this.editableSettings.timeIcons[phase] === trimmed) {
+                        return;
+          }
+          this.editableSettings.timeIcons[phase] = trimmed;
+          this.markSettingsDirty();
           this.refreshPreviewRow();
         });
       });
@@ -576,8 +664,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
     });
     const transitionDefaults = DEFAULT_SETTINGS.timeColorTransitions;
     const ensureTransitionPhase = (phase: "sunrise" | "sunset") => {
-      const current = this.plugin.settings.timeColorTransitions ?? (
-        this.plugin.settings.timeColorTransitions = {
+      const current = this.editableSettings.timeColorTransitions ?? (
+        this.editableSettings.timeColorTransitions = {
           sunrise: { ...transitionDefaults.sunrise },
           sunset: { ...transitionDefaults.sunset },
         }
@@ -588,7 +676,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       return current[phase];
     };
     const getTransitionValue = (phase: "sunrise" | "sunset", field: "before" | "after") => {
-      const transitions = this.plugin.settings.timeColorTransitions;
+      const transitions = this.editableSettings.timeColorTransitions;
       return transitions?.[phase]?.[field] ?? transitionDefaults[phase][field];
     };
     const transitionsRow = parent.createDiv({ cls: "weather-settings__grid weather-settings__sun-transition-columns" });
@@ -631,7 +719,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
           }
           target[fieldKey] = normalized;
           input.value = String(normalized);
-          void this.plugin.saveSettings();
+          this.markSettingsDirty();
           this.refreshPreviewRow();
         };
         input.addEventListener("change", commit);
@@ -670,10 +758,13 @@ export class WeatherSettingsTab extends PluginSettingTab {
       .setName(strings.weatherConditions[category])
         .addColorPicker((picker) =>
           picker
-          .setValue(this.plugin.settings.categoryStyles[category].color)
+          .setValue(this.editableSettings.categoryStyles[category].color)
             .onChange((value) => {
-                            this.plugin.settings.categoryStyles[category].color = value;
-              void this.plugin.saveSettings();
+                            if (this.editableSettings.categoryStyles[category].color === value) {
+                                return;
+              }
+              this.editableSettings.categoryStyles[category].color = value;
+              this.markSettingsDirty();
               this.updateWeatherGradientPreview?.();
               this.updateTimeGradientPreview?.();
               this.refreshGradientPreview();
@@ -683,16 +774,20 @@ export class WeatherSettingsTab extends PluginSettingTab {
           text.inputEl.maxLength = 5;
           text.inputEl.size = 5;
           text.inputEl.classList.add("weather-settings__icon-input");
-          const currentIcon = this.plugin.settings.categoryStyles[category].icon;
+          const currentIcon = this.editableSettings.categoryStyles[category].icon;
           text.setValue(typeof currentIcon === "string" ? currentIcon : DEFAULT_SETTINGS.categoryStyles[category].icon);
           text.onChange((value) => {
-                        this.plugin.settings.categoryStyles[category].icon = value.trim();
-            void this.plugin.saveSettings();
+                        const trimmed = value.trim();
+            if (this.editableSettings.categoryStyles[category].icon === trimmed) {
+                            return;
+            }
+            this.editableSettings.categoryStyles[category].icon = trimmed;
+            this.markSettingsDirty();
             this.refreshPreviewRow();
           });
         });
       });
-    const weatherAlpha = this.plugin.settings.weatherAlpha;
+    const weatherAlpha = this.editableSettings.weatherAlpha;
     this.addAlphaProfileSetting(parent, strings.settings.weatherLayer.alphaProfileLabel, weatherAlpha.profile, strings, (value) => {
             weatherAlpha.profile = value;
     });
@@ -714,8 +809,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
       .addToggle((toggle) => {
             toggle.setValue(!weatherAlpha.enableLeft);
     toggle.onChange((value) => {
-            weatherAlpha.enableLeft = !value;
-      void this.plugin.saveSettings();
+            const next = !value;
+      if (weatherAlpha.enableLeft === next) {
+                    return;
+      }
+      weatherAlpha.enableLeft = next;
+      this.markSettingsDirty();
       this.refreshGradientPreview();
       this.refreshPreviewRow();
     });
@@ -736,7 +835,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         .setButtonText(strings.settings.temperatureLayer.addButtonLabel)
           .onClick(() => {
                         const fallback = DEFAULT_SETTINGS.temperatureGradient[DEFAULT_SETTINGS.temperatureGradient.length - 1];
-            this.plugin.settings.temperatureGradient.push({
+            this.editableSettings.temperatureGradient.push({
                             temperature: fallback.temperature,
               color: fallback.color,
             });
@@ -744,7 +843,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
             this.refreshTemperatureTable();
           });
         });
-    const temperatureAlpha = this.plugin.settings.temperatureAlpha;
+    const temperatureAlpha = this.editableSettings.temperatureAlpha;
     this.addAlphaProfileSetting(parent, strings.settings.temperatureLayer.alphaProfileLabel, temperatureAlpha.profile, strings, (value) => {
             temperatureAlpha.profile = value;
     });
@@ -766,8 +865,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
       .addToggle((toggle) => {
             toggle.setValue(!temperatureAlpha.enableRight);
     toggle.onChange((value) => {
-            temperatureAlpha.enableRight = !value;
-      void this.plugin.saveSettings();
+            const next = !value;
+      if (temperatureAlpha.enableRight === next) {
+                    return;
+      }
+      temperatureAlpha.enableRight = next;
+      this.markSettingsDirty();
       this.refreshGradientPreview();
       this.refreshPreviewRow();
     });
@@ -780,7 +883,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
             return;
     }
     body.replaceChildren();
-    this.plugin.settings.temperatureGradient.forEach((stop, index) => {
+    this.editableSettings.temperatureGradient.forEach((stop, index) => {
             const row = body.insertRow();
       this.renderTemperatureRow(row, stop, index, strings);
     });
@@ -798,7 +901,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       attr: { type: "number", step: "1" },
     });
     tempInput.value = String(stop.temperature);
-    const getTargetStop = () => this.plugin.settings.temperatureGradient[index] ?? stop;
+    const getTargetStop = () => this.editableSettings.temperatureGradient[index] ?? stop;
     const resetTemperatureInput = () => {
             const target = getTargetStop();
       tempInput.value = String(target.temperature);
@@ -853,36 +956,36 @@ export class WeatherSettingsTab extends PluginSettingTab {
             cls: "weather-settings__table-button weather-settings__table-button--icon",
       text: "↓",
     });
-    down.disabled = index === this.plugin.settings.temperatureGradient.length - 1;
+    down.disabled = index === this.editableSettings.temperatureGradient.length - 1;
     down.addEventListener("click", () => this.moveTemperatureStop(index, 1));
     const remove = actionsCell.createEl("button", {
             cls: "weather-settings__table-button",
       text: strings.actions.remove,
     });
     remove.addEventListener("click", () => {
-            this.plugin.settings.temperatureGradient.splice(index, 1);
+            this.editableSettings.temperatureGradient.splice(index, 1);
       this.persistTemperatureGradient();
       this.refreshTemperatureTable();
     });
   }
   private persistTemperatureGradient(): void {
-        void this.plugin.saveSettings();
+        this.markSettingsDirty();
     this.updateTemperatureGradientPreview?.();
     this.refreshGradientPreview();
     this.refreshPreviewRow();
   }
   private moveTemperatureStop(index: number, offset: number): void {
         const target = index + offset;
-    if (target < 0 || target >= this.plugin.settings.temperatureGradient.length) {
+    if (target < 0 || target >= this.editableSettings.temperatureGradient.length) {
             return;
     }
-    const list = this.plugin.settings.temperatureGradient;
+    const list = this.editableSettings.temperatureGradient;
     [list[index], list[target]] = [list[target], list[index]];
     this.persistTemperatureGradient();
     this.refreshTemperatureTable();
   }
   private renderSunLayerContent(parent: HTMLElement, strings: LocaleStrings): void {
-        const sunLayer = this.plugin.settings.sunLayer;
+        const sunLayer = this.editableSettings.sunLayer;
     const colorGrid = parent.createDiv({ cls: "weather-settings__color-grid weather-settings__color-grid--sun" });
     (["night", "sunrise", "day", "sunset"] as const).forEach((key) => {
             new Setting(colorGrid)
@@ -891,8 +994,11 @@ export class WeatherSettingsTab extends PluginSettingTab {
           picker
           .setValue(sunLayer.colors[key])
             .onChange((value) => {
-                        sunLayer.colors[key] = value;
-              void this.plugin.saveSettings();
+                        if (sunLayer.colors[key] === value) {
+                            return;
+              }
+              sunLayer.colors[key] = value;
+              this.markSettingsDirty();
               this.refreshPreviewRow();
             }));
     });
@@ -929,8 +1035,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
       iconInputEl = text.inputEl;
       text.setValue(sunLayer.icon.symbol);
       text.onChange((value) => {
-                sunLayer.icon.symbol = value.trim();
-        void this.plugin.saveSettings();
+                const trimmed = value.trim();
+        if (sunLayer.icon.symbol === trimmed) {
+                    return;
+        }
+        sunLayer.icon.symbol = trimmed;
+        this.markSettingsDirty();
         this.refreshPreviewRow();
       });
     });
@@ -940,14 +1050,17 @@ export class WeatherSettingsTab extends PluginSettingTab {
     iconMonospaceSetting.addToggle((toggle) => {
             toggle.setValue(Boolean(sunLayer.icon.monospaced));
       toggle.onChange((value) => {
-                sunLayer.icon.monospaced = value;
+                if (Boolean(sunLayer.icon.monospaced) === value) {
+                    return;
+        }
+        sunLayer.icon.monospaced = value;
         if (iconInputEl) {
           iconInputEl.classList.toggle("is-monospaced", value);
         }
         if (this.previewSunIconEl) {
           this.previewSunIconEl.classList.toggle("is-monospaced", value);
         }
-        void this.plugin.saveSettings();
+        this.markSettingsDirty();
         this.refreshPreviewRow();
       });
     });
@@ -965,8 +1078,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
     });
     const transitionDefaults = DEFAULT_SETTINGS.sunLayer.transitions;
     const ensureTransitionPhase = (phase: "sunrise" | "sunset") => {
-      const transitions = this.plugin.settings.sunLayer.transitions ?? (
-        this.plugin.settings.sunLayer.transitions = {
+      const transitions = this.editableSettings.sunLayer.transitions ?? (
+        this.editableSettings.sunLayer.transitions = {
           sunrise: { ...transitionDefaults.sunrise },
           sunset: { ...transitionDefaults.sunset },
         }
@@ -977,7 +1090,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       return transitions[phase];
     };
     const getTransitionValue = (phase: "sunrise" | "sunset", field: "before" | "after") => {
-      const transitions = this.plugin.settings.sunLayer.transitions;
+      const transitions = this.editableSettings.sunLayer.transitions;
       return transitions?.[phase]?.[field] ?? transitionDefaults[phase][field];
     };
     const transitionsRow = parent.createDiv({ cls: "weather-settings__grid weather-settings__sun-transition-columns" });
@@ -1020,7 +1133,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
           }
           target[fieldKey] = normalized;
           input.value = String(normalized);
-          void this.plugin.saveSettings();
+          this.markSettingsDirty();
           this.refreshPreviewRow();
         };
         input.addEventListener("change", commit);
@@ -1061,11 +1174,17 @@ export class WeatherSettingsTab extends PluginSettingTab {
         text.setValue(String(target.peak));
         text.onChange((value) => {
                     const parsed = Number(value);
-          if (Number.isFinite(parsed)) {
-                        target.peak = Math.max(0, Math.min(1, parsed));
-            text.setValue(String(target.peak));
-            void this.plugin.saveSettings();
+          if (!Number.isFinite(parsed)) {
+                        return;
           }
+          const clamped = Math.max(0, Math.min(1, parsed));
+          if (target.peak === clamped) {
+                        text.setValue(String(target.peak));
+            return;
+          }
+          target.peak = clamped;
+          text.setValue(String(target.peak));
+          this.markSettingsDirty();
         });
       })
       .addText((text) => {
@@ -1074,11 +1193,17 @@ export class WeatherSettingsTab extends PluginSettingTab {
         text.setValue(String(target.mid));
         text.onChange((value) => {
                     const parsed = Number(value);
-          if (Number.isFinite(parsed)) {
-                        target.mid = Math.max(0, Math.min(1, parsed));
-            text.setValue(String(target.mid));
-            void this.plugin.saveSettings();
+          if (!Number.isFinite(parsed)) {
+                        return;
           }
+          const clamped = Math.max(0, Math.min(1, parsed));
+          if (target.mid === clamped) {
+                        text.setValue(String(target.mid));
+            return;
+          }
+          target.mid = clamped;
+          text.setValue(String(target.mid));
+          this.markSettingsDirty();
         });
       })
       .addText((text) => {
@@ -1087,14 +1212,20 @@ export class WeatherSettingsTab extends PluginSettingTab {
         text.setValue(String(target.low));
         text.onChange((value) => {
                     const parsed = Number(value);
-          if (Number.isFinite(parsed)) {
-                        target.low = Math.max(0, Math.min(1, parsed));
-            text.setValue(String(target.low));
-            void this.plugin.saveSettings();
+          if (!Number.isFinite(parsed)) {
+                        return;
           }
+          const clamped = Math.max(0, Math.min(1, parsed));
+          if (target.low === clamped) {
+                        text.setValue(String(target.low));
+            return;
+          }
+          target.low = clamped;
+          text.setValue(String(target.low));
+          this.markSettingsDirty();
         });
       });
-    }
+  }
   private renderLayerTabs(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section weather-settings__section--tabs" });
     const tabs = [
@@ -1219,7 +1350,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.previewOverlay = row.createDiv({ cls: "ow-sun-overlay" });
     this.previewSunIconEl = row.createSpan({ cls: "ow-sun-overlay__icon" });
     this.previewSunIconEl.setAttr("aria-hidden", "true");
-    this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.plugin.settings.sunLayer.icon.monospaced));
+    this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.editableSettings.sunLayer.icon.monospaced));
     const leftGroup = row.createDiv({ cls: "ow-row__group ow-row__group--left" });
     const weatherCell = leftGroup.createDiv({ cls: "ow-weather-info weather-widget__cell weather-widget__weather" });
     this.previewWeatherIconEl = weatherCell.createSpan({ cls: "weather-widget__icon" });
@@ -1308,44 +1439,44 @@ export class WeatherSettingsTab extends PluginSettingTab {
     };
     this.updateTimeGradientPreview = updatePreview;
     updatePreview();
-    this.addNumberSetting(parent, strings.settings.gradients.time.mixRatio, this.plugin.settings.gradients.timeBlend.mixRatio, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.time.mixRatio, this.editableSettings.gradients.timeBlend.mixRatio, (value) => {
       const normalized = Math.max(0, Math.min(1, value));
-      this.plugin.settings.gradients.timeBlend.mixRatio = normalized;
+      this.editableSettings.gradients.timeBlend.mixRatio = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.time.padding, this.plugin.settings.gradients.timeBlend.padding, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.time.padding, this.editableSettings.gradients.timeBlend.padding, (value) => {
       const normalized = Math.max(0, value);
-      this.plugin.settings.gradients.timeBlend.padding = normalized;
+      this.editableSettings.gradients.timeBlend.padding = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.time.widthMin, this.plugin.settings.gradients.timeBlend.widthMin, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.time.widthMin, this.editableSettings.gradients.timeBlend.widthMin, (value) => {
       const normalized = Math.max(0, value);
-      this.plugin.settings.gradients.timeBlend.widthMin = normalized;
+      this.editableSettings.gradients.timeBlend.widthMin = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.time.widthMax, this.plugin.settings.gradients.timeBlend.widthMax, (value) => {
-      const normalized = Math.max(this.plugin.settings.gradients.timeBlend.widthMin, value);
-      this.plugin.settings.gradients.timeBlend.widthMax = normalized;
+    this.addNumberSetting(parent, strings.settings.gradients.time.widthMax, this.editableSettings.gradients.timeBlend.widthMax, (value) => {
+      const normalized = Math.max(this.editableSettings.gradients.timeBlend.widthMin, value);
+      this.editableSettings.gradients.timeBlend.widthMax = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.time.peakAlpha, this.plugin.settings.gradients.timeBlend.peakAlpha, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.time.peakAlpha, this.editableSettings.gradients.timeBlend.peakAlpha, (value) => {
       const normalized = Math.max(0, Math.min(1, value));
-      this.plugin.settings.gradients.timeBlend.peakAlpha = normalized;
+      this.editableSettings.gradients.timeBlend.peakAlpha = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.time.edgeAlpha, this.plugin.settings.gradients.timeBlend.edgeAlpha, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.time.edgeAlpha, this.editableSettings.gradients.timeBlend.edgeAlpha, (value) => {
       const normalized = Math.max(0, Math.min(1, value));
-      this.plugin.settings.gradients.timeBlend.edgeAlpha = normalized;
+      this.editableSettings.gradients.timeBlend.edgeAlpha = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.time.steps, this.plugin.settings.gradients.timeBlend.steps, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.time.steps, this.editableSettings.gradients.timeBlend.steps, (value) => {
       const normalized = Math.max(0, Math.round(value));
-      this.plugin.settings.gradients.timeBlend.steps = normalized;
+      this.editableSettings.gradients.timeBlend.steps = normalized;
       return normalized;
     }, { min: 0, step: "1", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.time.power, this.plugin.settings.gradients.timeBlend.power, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.time.power, this.editableSettings.gradients.timeBlend.power, (value) => {
       const normalized = Math.max(0.1, value);
-      this.plugin.settings.gradients.timeBlend.power = normalized;
+      this.editableSettings.gradients.timeBlend.power = normalized;
       return normalized;
     }, { min: 0.1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
   }
@@ -1355,39 +1486,39 @@ export class WeatherSettingsTab extends PluginSettingTab {
     };
     this.updateWeatherGradientPreview = updatePreview;
     updatePreview();
-    this.addNumberSetting(parent, strings.settings.gradients.weather.padding, this.plugin.settings.gradients.weather.padding, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.weather.padding, this.editableSettings.gradients.weather.padding, (value) => {
       const normalized = Math.max(0, value);
-      this.plugin.settings.gradients.weather.padding = normalized;
+      this.editableSettings.gradients.weather.padding = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.weather.widthMin, this.plugin.settings.gradients.weather.widthMin, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.weather.widthMin, this.editableSettings.gradients.weather.widthMin, (value) => {
       const normalized = Math.max(0, value);
-      this.plugin.settings.gradients.weather.widthMin = normalized;
+      this.editableSettings.gradients.weather.widthMin = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.weather.widthMax, this.plugin.settings.gradients.weather.widthMax, (value) => {
-      const normalized = Math.max(this.plugin.settings.gradients.weather.widthMin, value);
-      this.plugin.settings.gradients.weather.widthMax = normalized;
+    this.addNumberSetting(parent, strings.settings.gradients.weather.widthMax, this.editableSettings.gradients.weather.widthMax, (value) => {
+      const normalized = Math.max(this.editableSettings.gradients.weather.widthMin, value);
+      this.editableSettings.gradients.weather.widthMax = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.weather.peakScale, this.plugin.settings.gradients.weather.peakScale, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.weather.peakScale, this.editableSettings.gradients.weather.peakScale, (value) => {
       const normalized = Math.max(0, value);
-      this.plugin.settings.gradients.weather.peakScale = normalized;
+      this.editableSettings.gradients.weather.peakScale = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.weather.edgeScale, this.plugin.settings.gradients.weather.edgeScale, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.weather.edgeScale, this.editableSettings.gradients.weather.edgeScale, (value) => {
       const normalized = Math.max(0, value);
-      this.plugin.settings.gradients.weather.edgeScale = normalized;
+      this.editableSettings.gradients.weather.edgeScale = normalized;
       return normalized;
     }, { min: 0, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.weather.steps, this.plugin.settings.gradients.weather.steps, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.weather.steps, this.editableSettings.gradients.weather.steps, (value) => {
       const normalized = Math.max(0, Math.round(value));
-      this.plugin.settings.gradients.weather.steps = normalized;
+      this.editableSettings.gradients.weather.steps = normalized;
       return normalized;
     }, { min: 0, step: "1", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.weather.power, this.plugin.settings.gradients.weather.power, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.weather.power, this.editableSettings.gradients.weather.power, (value) => {
       const normalized = Math.max(0.1, value);
-      this.plugin.settings.gradients.weather.power = normalized;
+      this.editableSettings.gradients.weather.power = normalized;
       return normalized;
     }, { min: 0.1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
   }
@@ -1397,34 +1528,34 @@ export class WeatherSettingsTab extends PluginSettingTab {
     };
     this.updateTemperatureGradientPreview = updatePreview;
     updatePreview();
-    this.addNumberSetting(parent, strings.settings.gradients.temperature.start, this.plugin.settings.gradients.temperature.start, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.temperature.start, this.editableSettings.gradients.temperature.start, (value) => {
       const normalized = Math.max(0, Math.min(1, value));
-      this.plugin.settings.gradients.temperature.start = normalized;
+      this.editableSettings.gradients.temperature.start = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.temperature.end, this.plugin.settings.gradients.temperature.end, (value) => {
-      const normalized = Math.max(this.plugin.settings.gradients.temperature.start, Math.min(1, value));
-      this.plugin.settings.gradients.temperature.end = normalized;
+    this.addNumberSetting(parent, strings.settings.gradients.temperature.end, this.editableSettings.gradients.temperature.end, (value) => {
+      const normalized = Math.max(this.editableSettings.gradients.temperature.start, Math.min(1, value));
+      this.editableSettings.gradients.temperature.end = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.temperature.peakAlpha, this.plugin.settings.gradients.temperature.peakAlpha, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.temperature.peakAlpha, this.editableSettings.gradients.temperature.peakAlpha, (value) => {
       const normalized = Math.max(0, Math.min(1, value));
-      this.plugin.settings.gradients.temperature.peakAlpha = normalized;
+      this.editableSettings.gradients.temperature.peakAlpha = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.temperature.edgeAlpha, this.plugin.settings.gradients.temperature.edgeAlpha, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.temperature.edgeAlpha, this.editableSettings.gradients.temperature.edgeAlpha, (value) => {
       const normalized = Math.max(0, Math.min(1, value));
-      this.plugin.settings.gradients.temperature.edgeAlpha = normalized;
+      this.editableSettings.gradients.temperature.edgeAlpha = normalized;
       return normalized;
     }, { min: 0, max: 1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.temperature.steps, this.plugin.settings.gradients.temperature.steps, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.temperature.steps, this.editableSettings.gradients.temperature.steps, (value) => {
       const normalized = Math.max(0, Math.round(value));
-      this.plugin.settings.gradients.temperature.steps = normalized;
+      this.editableSettings.gradients.temperature.steps = normalized;
       return normalized;
     }, { min: 0, step: "1", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
-    this.addNumberSetting(parent, strings.settings.gradients.temperature.power, this.plugin.settings.gradients.temperature.power, (value) => {
+    this.addNumberSetting(parent, strings.settings.gradients.temperature.power, this.editableSettings.gradients.temperature.power, (value) => {
       const normalized = Math.max(0.1, value);
-      this.plugin.settings.gradients.temperature.power = normalized;
+      this.editableSettings.gradients.temperature.power = normalized;
       return normalized;
     }, { min: 0.1, step: "0.01", onChange: () => { updatePreview(); this.refreshPreviewRow(); } });
   }
@@ -1435,7 +1566,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     if (!this.gradientPreviewEl) {
       return;
     }
-    const settings = this.plugin.settings;
+    const settings = this.editableSettings;
     const daySpan = clamp(PREVIEW_DAY_SPAN, settings.daySpan.min, settings.daySpan.max);
     const dayStart = clamp(PREVIEW_DAY_START, 0, Math.max(0, 1 - daySpan));
     const dayEnd = clamp(dayStart + daySpan, 0, 1);
@@ -1473,8 +1604,8 @@ export class WeatherSettingsTab extends PluginSettingTab {
     if (!this.previewRow) {
       return;
     }
-    const settings = this.plugin.settings;
-    const strings = this.plugin.getStrings();
+    const settings = this.editableSettings;
+    const strings = this.latestStrings ?? this.getStringsForRendering();
     const daySpan = clamp(PREVIEW_DAY_SPAN, settings.daySpan.min, settings.daySpan.max);
     const dayStart = clamp(PREVIEW_DAY_START, 0, Math.max(0, 1 - daySpan));
     const dayEnd = clamp(dayStart + daySpan, 0, 1);
@@ -1510,7 +1641,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const derivedPhase = timePhase.phase ?? "day";
     const baseColor = ensureHex(timePhase.color, settings.timeBaseColors[derivedPhase]);
     const sunPositionPercent = this.sunPositionPercent(sunriseSeconds, sunsetSeconds, localSeconds);
-    const categoryStyle = this.plugin.settings.categoryStyles[this.sampleWeatherCategory] ?? this.plugin.settings.categoryStyles.sunny;
+    const categoryStyle = this.editableSettings.categoryStyles[this.sampleWeatherCategory] ?? this.editableSettings.categoryStyles.sunny;
     const weatherColor = ensureHex(categoryStyle.color, "#6b7280");
     const temperatureColor = tempToColorSample(this.sampleTemperature, settings.temperatureGradient);
     const gradientState = computeGradientLayers({
@@ -1539,7 +1670,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       });
       applySunOverlayStyles(this.previewOverlay, overlayState);
       if (this.previewSunIconEl) {
-        this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.plugin.settings.sunLayer.icon.monospaced));
+        this.previewSunIconEl.classList.toggle("is-monospaced", Boolean(this.editableSettings.sunLayer.icon.monospaced));
         this.previewSunIconEl.textContent = overlayState.icon.symbol;
         applySunIconStyles(this.previewSunIconEl, overlayState.icon);
         this.previewSunIconEl.dataset.verticalProgress = overlayState.icon.verticalProgress.toFixed(3);
@@ -1547,7 +1678,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     }
     const timeLabel = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     if (this.previewTimeIconEl) {
-      const icons = this.plugin.settings.timeIcons ?? PREVIEW_TIME_EMOJIS;
+      const icons = this.editableSettings.timeIcons ?? PREVIEW_TIME_EMOJIS;
       const configured = icons?.[derivedPhase];
       const icon =
         typeof configured === "string"
@@ -1560,7 +1691,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       this.previewTimeTextEl.textContent = timeLabel;
     }
     if (this.previewDateEl) {
-      const dateFormat = normalizeDateFormat(this.plugin.settings.dateFormat, DEFAULT_SETTINGS.dateFormat);
+      const dateFormat = normalizeDateFormat(this.editableSettings.dateFormat, DEFAULT_SETTINGS.dateFormat);
       const cityDateComponents = extractDateComponents(previewLocalDate);
       const dateLabel = formatDateComponents(
         cityDateComponents,
@@ -1568,7 +1699,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         DEFAULT_SETTINGS.dateFormat,
         strings.date.monthNames,
       );
-      const shouldShowDate = this.plugin.settings.showDateWhenDifferent;
+      const shouldShowDate = this.editableSettings.showDateWhenDifferent;
       this.previewDateEl.textContent = shouldShowDate ? dateLabel : "";
       this.previewDateEl.classList.toggle("is-hidden", !shouldShowDate);
     }
@@ -1588,7 +1719,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     if (this.previewTemperatureEl) {
       this.previewTemperatureEl.textContent = formatTemperatureValue(
         this.sampleTemperature,
-        this.plugin.settings.temperatureUnit,
+        this.editableSettings.temperatureUnit,
       );
     }
   }
@@ -1598,7 +1729,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     }
     this.previewTemperatureValueEl.textContent = formatTemperatureValue(
       this.sampleTemperature,
-      this.plugin.settings.temperatureUnit,
+      this.editableSettings.temperatureUnit,
     );
   }
   private sunPositionPercent(sunrise: number, sunset: number, localSeconds: number): number {
@@ -1614,18 +1745,24 @@ export class WeatherSettingsTab extends PluginSettingTab {
     return ((localSeconds - sunrise) / (sunset - sunrise)) * 100;
   }
   private computeSunHighlight(timeOfDay: TimeOfDayKey): number {
-    const sunLayer = this.plugin.settings.sunLayer;
+    const sunLayer = this.editableSettings.sunLayer;
     const highlight = timeOfDay === 'night'
       ? sunLayer.nightHighlight
       : timeOfDay === 'day'
         ? sunLayer.dayHighlight
         : sunLayer.twilightHighlight;
-    return Math.max(this.plugin.settings.leftPanel.minHighlight, highlight);
+    return Math.max(this.editableSettings.leftPanel.minHighlight, highlight);
   }
   
   hide(): void {
         super.hide();
-    this.plugin.onSettingsTabClosed();
+    void this.commitSettingsIfNeeded()
+      .catch((error) => {
+                console.error("WeatherSettingsTab: failed to persist settings", error);
+      })
+      .finally(() => {
+                this.plugin.onSettingsTabClosed();
+      });
   }
   private renderOtherSection(parent: HTMLElement, strings: LocaleStrings): void {
         const section = parent.createDiv({ cls: "weather-settings__section" });
@@ -1637,10 +1774,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.addNumberSetting(
       section,
       strings.settings.gradients.edgeWidthLabel,
-      this.plugin.settings.gradientEdgePortion,
+      this.editableSettings.gradientEdgePortion,
       (value) => {
         const normalized = Math.min(0.5, Math.max(0, value));
-        this.plugin.settings.gradientEdgePortion = normalized;
+        this.editableSettings.gradientEdgePortion = normalized;
         return normalized;
       },
       {
@@ -1660,17 +1797,16 @@ export class WeatherSettingsTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
                 dropdown.addOption("celsius", strings.settings.other.temperatureUnitOptions.celsius);
         dropdown.addOption("fahrenheit", strings.settings.other.temperatureUnitOptions.fahrenheit);
-        dropdown.setValue(this.plugin.settings.temperatureUnit);
+        dropdown.setValue(this.editableSettings.temperatureUnit);
         dropdown.onChange((value) => {
                     const normalized = value === "fahrenheit" ? "fahrenheit" : "celsius";
-          if (this.plugin.settings.temperatureUnit === normalized) {
+          if (this.editableSettings.temperatureUnit === normalized) {
             return;
           }
-          this.plugin.settings.temperatureUnit = normalized;
-          void this.plugin.saveSettings();
+          this.editableSettings.temperatureUnit = normalized;
+          this.markSettingsDirty();
           this.refreshPreviewRow();
           this.refreshSampleTemperatureLabel();
-          this.plugin.requestWidgetRefresh();
         });
       });
     const dateRow = section.createDiv({ cls: "weather-settings__date-row" });
@@ -1678,10 +1814,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
     .setName(strings.settings.other.showDateLabel)
       .setDesc(strings.settings.other.showDateDescription)
       .addToggle((toggle) => {
-                toggle.setValue(this.plugin.settings.showDateWhenDifferent);
+                toggle.setValue(this.editableSettings.showDateWhenDifferent);
         toggle.onChange((value) => {
-                    this.plugin.settings.showDateWhenDifferent = value;
-          void this.plugin.saveSettings();
+                    this.editableSettings.showDateWhenDifferent = value;
+          this.markSettingsDirty();
           this.refreshPreviewRow();
         });
       });
@@ -1690,16 +1826,16 @@ export class WeatherSettingsTab extends PluginSettingTab {
       .setDesc(strings.settings.other.dateFormatDescription)
       .addText((text) => {
                 text.setPlaceholder(DEFAULT_SETTINGS.dateFormat);
-        text.setValue(this.plugin.settings.dateFormat);
+        text.setValue(this.editableSettings.dateFormat);
         text.onChange((value) => {
                     const trimmed = value.trim();
           const normalized = trimmed.length > 0 ? trimmed : DEFAULT_SETTINGS.dateFormat;
-          if (this.plugin.settings.dateFormat === normalized) {
+          if (this.editableSettings.dateFormat === normalized) {
             return;
           }
-          this.plugin.settings.dateFormat = normalized;
+          this.editableSettings.dateFormat = normalized;
           text.setValue(normalized);
-          void this.plugin.saveSettings();
+          this.markSettingsDirty();
           this.refreshPreviewRow();
         });
       });
@@ -1723,13 +1859,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
               if (!confirmed) {
                 return;
               }
-              button.setDisabled(true);
-              await this.plugin.resetSettings();
+              this.resetDraftToDefaults();
               this.display();
             })();
           });
         });
-    }
+  }
   private showConfirmationModal(options: { message: string; confirmLabel: string; cancelLabel: string }): Promise<boolean> {
         return new Promise((resolve) => {
       const modal = new WeatherConfirmationModal(this.app, options, resolve);
@@ -1759,7 +1894,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       dropdown.onChange((value) => {
                 const normalized = this.normalizeAlphaProfile(value);
         onChange(normalized);
-        void this.plugin.saveSettings();
+        this.markSettingsDirty();
         this.refreshGradientPreview();
         this.refreshPreviewRow();
       });
@@ -1829,7 +1964,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         const changed = Math.abs(applied - currentValue) > epsilon;
         if (changed) {
           currentValue = applied;
-          void this.plugin.saveSettings();
+          this.markSettingsDirty();
           options.onChange?.();
         }
         if (finalize || rounded !== applied || changed) {
