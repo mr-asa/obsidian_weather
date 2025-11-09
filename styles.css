@@ -441,6 +441,72 @@
   color: var(--text-muted);
 }
 
+.weather-settings__section--tabs {
+  margin-bottom: 32px;
+}
+
+.weather-settings__tabs {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-settings__tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0;
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.weather-settings__tab-button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.weather-settings__tab-button.is-active {
+  color: var(--text-normal);
+  border-bottom-color: var(--interactive-accent);
+  font-weight: 600;
+}
+
+.weather-settings__tab-panels {
+  padding: 0;
+  background: var(--background-primary);
+}
+
+.weather-settings__tab-panel {
+  display: none;
+  padding: 16px;
+}
+
+.weather-settings__tab-panel.is-active {
+  display: block;
+}
+
+.weather-settings__tab-description {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.weather-settings__tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 
 
 .weather-settings__section-body {
@@ -491,45 +557,57 @@
   max-width: 100%;
 }
 
-.weather-settings__widget-update-control {
+.weather-settings__widget-header {
+  gap: 16px;
+}
+
+.weather-settings__widget-header .setting-item-info {
+  flex: 1 1 auto;
+}
+
+.weather-settings__widget-header .setting-item-control {
+  flex: 0 1 280px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.weather-settings__widget-row .setting-item-info {
+  display: none;
+}
+
+.weather-settings__widget-row .setting-item-control {
+  width: 100%;
+}
+
+.weather-settings__widget-row-inner {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
+  width: 100%;
   align-items: flex-start;
-  width: 100%;
 }
-.weather-settings__widget-update-column {
-  flex: 1 1 100%;
+
+.weather-settings__widget-provider {
+  flex: 1 1 280px;
+  min-width: 240px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
-@media (min-width: 900px) {
-  .weather-settings__widget-update-column--provider {
-    flex: 5 1 0;
-    min-width: 240px;
-  }
-  .weather-settings__widget-update-column--api {
-    flex: 6 1 0;
-    min-width: 260px;
-  }
-  .weather-settings__widget-update-column--interval {
-    flex: 3 1 0;
-    min-width: 80px;
-    max-width: 140px;
-  }
-}
-
-.weather-settings__field {
+.weather-settings__widget-provider-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.weather-settings__field > input,
-.weather-settings__field > select {
-  width: 100%;
+.weather-settings__widget-provider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
 }
 
 .weather-settings__provider-select {
@@ -537,21 +615,30 @@
   max-width: 360px;
 }
 
-.weather-settings__field.is-hidden {
-  display: none;
+.weather-settings__widget-api {
+  flex: 1 1 200px;
+  min-width: 200px;
+  display: flex;
+  align-items: flex-end;
 }
 
-.weather-settings__widget-update-column.is-placeholder {
+.weather-settings__widget-api-input {
+  width: 100%;
+}
+
+.weather-settings__widget-api.is-placeholder {
   visibility: hidden;
   pointer-events: none;
   max-height: 0;
 }
 
-.weather-settings__field-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+.weather-settings__widget-interval {
+  flex: 0 1 200px;
+  min-width: 160px;
+}
+
+.weather-settings__widget-row-inner + .weather-settings__widget-row-inner {
+  margin-top: 12px;
 }
 
 .weather-settings__provider-link {
@@ -571,6 +658,21 @@
   text-decoration: none;
   pointer-events: none;
   cursor: default;
+}
+
+.weather-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.weather-settings__field > input,
+.weather-settings__field > select {
+  width: 100%;
+}
+
+.weather-settings__field.is-hidden {
+  display: none;
 }
 
 .weather-settings__hint--compact {
@@ -642,23 +744,12 @@
   gap: 16px;
   align-items: center;
   margin: 18px 0 12px;
-  padding-top: 16px;
 }
 
 .weather-settings__divider-vertical {
   width: 1px;
   background: var(--background-modifier-border);
   height: 100%;
-}
-
-.weather-settings__sun-transition-columns::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--background-modifier-border);
 }
 
 .weather-settings__sun-transition-column {
@@ -693,7 +784,7 @@
   grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr);
   gap: 12px;
   align-items: center;
-  padding: 14px 16px 6px;
+  padding: 14px 0 6px;
 }
 
 .weather-settings__section-header-title {
@@ -714,8 +805,50 @@
 
 .weather-settings__section-divider {
   height: 1px;
-  margin: 0 16px 12px;
+  margin: 0 0 12px;
   background: var(--background-modifier-border);
+}
+
+.weather-settings__inline-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 18px 0 8px;
+}
+
+.weather-settings__inline-heading-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.weather-settings__inline-heading-description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.weather-settings__inline-heading {
+  margin-bottom: 8px;
+}
+
+.weather-settings__inline-heading .setting-item-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.weather-settings__inline-heading .setting-item-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.weather-settings__inline-heading .setting-item-description {
+  margin: 0;
+  color: var(--text-muted);
+  text-align: right;
 }
 
 @media (max-width: 720px) {
@@ -729,6 +862,20 @@
   .weather-settings__section-header {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+  .weather-settings__inline-heading-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .weather-settings__inline-heading-description {
+    text-align: left;
+  }
+  .weather-settings__inline-heading .setting-item-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .weather-settings__inline-heading .setting-item-description {
+    text-align: left;
   }
   .weather-settings__grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

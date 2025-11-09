@@ -167,19 +167,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     this.renderWidgetUpdatesSection(containerEl, strings);
     this.renderLocationsSection(containerEl, strings);
     this.renderGradientPreviewSection(containerEl, strings);
-    const collapsibleRoot = containerEl.createDiv({ cls: "weather-settings__collapsible-group" });
-    this.renderCollapsibleSection(collapsibleRoot, strings.settings.timePalette.heading, strings.settings.timePalette.description, (body) => {
-            this.renderTimePaletteContent(body, strings);
-    });
-    this.renderCollapsibleSection(collapsibleRoot, strings.settings.sunLayer.heading, strings.settings.sunLayer.description, (body) => {
-            this.renderSunLayerContent(body, strings);
-    });
-    this.renderCollapsibleSection(collapsibleRoot, strings.settings.weatherLayer.heading, strings.settings.weatherLayer.description, (body) => {
-            this.renderWeatherPaletteContent(body, strings);
-    });
-    this.renderCollapsibleSection(collapsibleRoot, strings.settings.temperatureLayer.heading, strings.settings.temperatureLayer.description, (body) => {
-            this.renderTemperatureGradientContent(body, strings);
-    });
+    this.renderLayerTabs(containerEl, strings);
     this.renderOtherSection(containerEl, strings);
     this.renderResetSection(containerEl, strings);
   }
@@ -204,9 +192,9 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderLocalizationSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    this.appendSectionHeader(section, strings.settings.localization.heading, strings.settings.localization.languageDescription);
-    const localizationSetting = new Setting(section);
-    localizationSetting.infoEl.remove();
+    const localizationSetting = new Setting(section)
+    .setName(strings.settings.localization.heading)
+      .setDesc(strings.settings.localization.languageDescription);
     localizationSetting.addDropdown((dropdown) => {
             (Object.keys(strings.languageNames) as LocaleCode[]).forEach((code) => {
                 dropdown.addOption(code, strings.languageNames[code]);
@@ -221,19 +209,27 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderWidgetUpdatesSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    this.appendSectionHeader(section, strings.settings.widgetUpdates.heading, strings.settings.widgetUpdates.description);
-    const rowSetting = new Setting(section);
-    rowSetting.infoEl.remove();
-    rowSetting.settingEl.addClass("weather-settings__widget-update");
-    const control = rowSetting.controlEl;
-    control.addClass("weather-settings__widget-update-control");
+    const headerSetting = new Setting(section)
+    .setName(strings.settings.widgetUpdates.heading)
+      .setDesc(strings.settings.widgetUpdates.description);
+    headerSetting.settingEl.addClass("weather-settings__widget-header");
+    const headerControl = headerSetting.controlEl;
     const providerLinks = strings.settings.widgetUpdates.providerLinks ?? {};
     const providerNames = strings.settings.widgetUpdates.providerOptions ?? {};
-    const providerColumn = control.createDiv({
-      cls: "weather-settings__widget-update-column weather-settings__widget-update-column--provider",
+    const apiColumn = headerControl.createDiv({ cls: "weather-settings__widget-api" });
+    const apiInput = apiColumn.createEl("input", {
+      attr: { type: "text", placeholder: strings.settings.widgetUpdates.apiKeyPlaceholder || "Insert API key" },
+      cls: "weather-settings__widget-api-input",
     });
-    const providerLabel = providerColumn.createEl("label", { cls: "weather-settings__field" });
-    const providerHeader = providerLabel.createDiv({ cls: "weather-settings__field-header" });
+
+    const providerSetting = new Setting(section);
+    providerSetting.settingEl.addClass("weather-settings__widget-row");
+    providerSetting.infoEl.remove();
+    const row = providerSetting.controlEl;
+    row.addClass("weather-settings__widget-row-inner");
+    const providerColumn = row.createDiv({ cls: "weather-settings__widget-provider" });
+    const providerLabel = providerColumn.createEl("label", { cls: "weather-settings__widget-provider-field" });
+    const providerHeader = providerLabel.createDiv({ cls: "weather-settings__widget-provider-header" });
     const providerLinkEl = providerHeader.createEl("a", {
       cls: "weather-settings__provider-link",
       text: strings.settings.widgetUpdates.providerLabel,
@@ -251,15 +247,36 @@ export class WeatherSettingsTab extends PluginSettingTab {
             providerSelect.createEl("option", { value, text: label });
     });
     providerSelect.value = this.plugin.settings.weatherProvider;
-    const apiColumn = control.createDiv({
-      cls: "weather-settings__widget-update-column weather-settings__widget-update-column--api",
+    const intervalColumn = row.createDiv({ cls: "weather-settings__widget-interval" });
+    const intervalLabel = intervalColumn.createEl("label", { cls: "weather-settings__field" });
+    intervalLabel.createSpan({ text: strings.settings.widgetUpdates.intervalLabel });
+    const intervalInput = intervalLabel.createEl("input", {
+      cls: "weather-settings__interval-input",
+      attr: { type: "number", min: "1", step: "1" },
     });
-    const apiLabel = apiColumn.createEl("label", { cls: "weather-settings__field" });
-    apiLabel.createSpan({ text: strings.settings.widgetUpdates.apiKeyLabel });
-    const apiInput = apiLabel.createEl("input", {
-      attr: { type: "text", placeholder: strings.settings.widgetUpdates.apiKeyPlaceholder },
+    intervalLabel.createSpan({ cls: "weather-settings__hint weather-settings__hint--compact", text: strings.settings.widgetUpdates.intervalHint });
+    intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
+    const commitInterval = () => {
+            const parsed = Number(intervalInput.value);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+                intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
+        return;
+      }
+      const normalized = Math.max(1, Math.round(parsed));
+      this.plugin.settings.weatherCacheMinutes = normalized;
+      this.plugin.settings.autoRefreshMinutes = normalized;
+      intervalInput.value = String(normalized);
+      void this.plugin.saveSettings();
+    };
+    intervalInput.addEventListener("change", commitInterval);
+    intervalInput.addEventListener("blur", commitInterval);
+    intervalInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+        commitInterval();
+        intervalInput.blur();
+      }
     });
-    const apiHint = apiLabel.createEl("span", { cls: "weather-settings__hint weather-settings__hint--compact" });
 
     const ensureProviderKeyMap = (): Record<string, string> => {
       if (!this.plugin.settings.weatherProviderApiKeys || typeof this.plugin.settings.weatherProviderApiKeys !== "object") {
@@ -322,11 +339,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
       apiInput.disabled = !meta.requiresKey;
       apiInput.required = meta.requiresKey;
       apiColumn.classList.toggle("is-placeholder", !meta.requiresKey);
-
-      const descriptions = strings.settings.widgetUpdates.apiKeyDescriptions ?? {};
-      const description = descriptions[provider] ?? "";
-      apiHint.textContent = description;
-      apiHint.classList.toggle("is-hidden", description.trim().length === 0 || !meta.requiresKey);
     };
 
     const handleProviderChange = async (target: HTMLSelectElement): Promise<void> => {
@@ -364,42 +376,29 @@ export class WeatherSettingsTab extends PluginSettingTab {
     });
 
     applyProviderState();
-    const intervalColumn = control.createDiv({
-      cls: "weather-settings__widget-update-column weather-settings__widget-update-column--interval",
-    });
-    const intervalLabel = intervalColumn.createEl("label", { cls: "weather-settings__field" });
-    intervalLabel.createSpan({ text: strings.settings.widgetUpdates.intervalLabel });
-    const intervalInput = intervalLabel.createEl("input", {
-      cls: "weather-settings__interval-input",
-      attr: { type: "number", min: "1", step: "1" },
-    });
-    intervalLabel.createSpan({ cls: "weather-settings__hint weather-settings__hint--compact", text: strings.settings.widgetUpdates.intervalHint });
-    intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
-    const commitInterval = () => {
-            const parsed = Number(intervalInput.value);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-                intervalInput.value = String(this.plugin.settings.weatherCacheMinutes);
-        return;
-      }
-      const normalized = Math.max(1, Math.round(parsed));
-      this.plugin.settings.weatherCacheMinutes = normalized;
-      this.plugin.settings.autoRefreshMinutes = normalized;
-      intervalInput.value = String(normalized);
-      void this.plugin.saveSettings();
-    };
-    intervalInput.addEventListener("change", commitInterval);
-    intervalInput.addEventListener("blur", commitInterval);
-    intervalInput.addEventListener("keydown", (event) => {
-            if (event.key === "Enter") {
-                event.preventDefault();
-        commitInterval();
-        intervalInput.blur();
-      }
-    });
   }
   private renderLocationsSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    this.appendSectionHeader(section, strings.settings.locations.heading, strings.settings.locations.description, { divider: true });
+    const headerSetting = new Setting(section)
+    .setName(strings.settings.locations.heading)
+      .setDesc(strings.settings.locations.description)
+      .setHeading();
+    headerSetting.settingEl.addClass("weather-settings__inline-heading");
+    headerSetting.addButton((button) => {
+            button
+        .setButtonText(strings.settings.locations.addButtonLabel)
+          .onClick(() => {
+                        this.plugin.settings.cities.push({
+                            id: createId("city"),
+              label: strings.settings.locations.defaultLabel,
+              latitude: 0,
+              longitude: 0,
+            });
+            void this.plugin.saveSettings();
+            this.display();
+          });
+      });
+    section.createDiv({ cls: "weather-settings__section-divider" });
     const table = section.createEl("table", { cls: "weather-settings__table" });
     const headRow = table.createTHead().insertRow();
     [
@@ -423,22 +422,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         this.renderCityRow(row, city, index, strings);
       });
     }
-    new Setting(section)
-    .addButton((button) => {
-                button
-        .setButtonText(strings.settings.locations.addButtonLabel)
-          .onClick(() => {
-                        this.plugin.settings.cities.push({
-                            id: createId("city"),
-              label: strings.settings.locations.defaultLabel,
-              latitude: 0,
-              longitude: 0,
-            });
-            void this.plugin.saveSettings();
-            this.display();
-          });
-        });
-    }
+  }
   private renderCityRow(row: HTMLTableRowElement, city: CityLocation, index: number, strings: LocaleStrings): void {
         const labelCell = row.insertCell();
     const labelInput = labelCell.createEl("input", { cls: "weather-settings__table-input", attr: { type: "text" } });
@@ -581,12 +565,15 @@ export class WeatherSettingsTab extends PluginSettingTab {
         });
       });
         });
-    this.appendSectionHeader(
-      parent,
-      strings.settings.timePalette.transitionsHeading,
-      strings.settings.timePalette.transitionsHint,
-      { divider: true },
-    );
+    const transitionsHeader = parent.createDiv({ cls: "weather-settings__inline-heading-row" });
+    transitionsHeader.createSpan({
+      cls: "weather-settings__inline-heading-title",
+      text: strings.settings.timePalette.transitionsHeading,
+    });
+    transitionsHeader.createSpan({
+      cls: "weather-settings__inline-heading-description",
+      text: strings.settings.timePalette.transitionsHint,
+    });
     const transitionDefaults = DEFAULT_SETTINGS.timeColorTransitions;
     const ensureTransitionPhase = (phase: "sunrise" | "sunset") => {
       const current = this.plugin.settings.timeColorTransitions ?? (
@@ -970,7 +957,12 @@ export class WeatherSettingsTab extends PluginSettingTab {
       return normalized;
     }, { min: 0.1, max: 5, step: "0.1", onChange: () => { this.refreshPreviewRow(); } });
     iconScaleSetting.settingEl.addClass("weather-settings__grid-item");
-    this.appendSectionHeader(parent, strings.settings.sunLayer.transitionsLabel, strings.settings.sunLayer.transitionsHint, { divider: true });
+    const transitionsHeader = parent.createDiv({ cls: "weather-settings__inline-heading-row" });
+    transitionsHeader.createSpan({ cls: "weather-settings__inline-heading-title", text: strings.settings.sunLayer.transitionsLabel });
+    transitionsHeader.createSpan({
+      cls: "weather-settings__inline-heading-description",
+      text: strings.settings.sunLayer.transitionsHint,
+    });
     const transitionDefaults = DEFAULT_SETTINGS.sunLayer.transitions;
     const ensureTransitionPhase = (phase: "sunrise" | "sunset") => {
       const transitions = this.plugin.settings.sunLayer.transitions ?? (
@@ -1103,25 +1095,124 @@ export class WeatherSettingsTab extends PluginSettingTab {
         });
       });
     }
-  private renderCollapsibleSection(
+  private renderLayerTabs(containerEl: HTMLElement, strings: LocaleStrings): void {
+        const section = containerEl.createDiv({ cls: "weather-settings__section weather-settings__section--tabs" });
+    const tabs = [
+      {
+        id: "time-palette",
+        title: strings.settings.timePalette.heading,
+        description: strings.settings.timePalette.description,
+        renderer: (body: HTMLDivElement) => {
+                    this.renderTimePaletteContent(body, strings);
+        },
+      },
+      {
+        id: "sun-layer",
+        title: strings.settings.sunLayer.heading,
+        description: strings.settings.sunLayer.description,
+        renderer: (body: HTMLDivElement) => {
+                    this.renderSunLayerContent(body, strings);
+        },
+      },
+      {
+        id: "weather-layer",
+        title: strings.settings.weatherLayer.heading,
+        description: strings.settings.weatherLayer.description,
+        renderer: (body: HTMLDivElement) => {
+                    this.renderWeatherPaletteContent(body, strings);
+        },
+      },
+      {
+        id: "temperature-layer",
+        title: strings.settings.temperatureLayer.heading,
+        description: strings.settings.temperatureLayer.description,
+        renderer: (body: HTMLDivElement) => {
+                    this.renderTemperatureGradientContent(body, strings);
+        },
+      },
+    ];
+    this.renderTabbedSections(section, tabs);
+  }
+  private renderTabbedSections(
         containerEl: HTMLElement,
-    summary: string,
-    description: string | null,
-    renderer: (body: HTMLDivElement) => void,
+    sections: Array<{ id: string; title: string; description?: string | null; renderer: (body: HTMLDivElement) => void }>,
   ): void {
-        const detailsEl = containerEl.createEl("details", { cls: "weather-settings__section weather-settings__section--collapsible" });
-    const summaryEl = detailsEl.createEl("summary", { cls: "weather-settings__section-summary" });
-    const summaryContent = summaryEl.createDiv({ cls: "weather-settings__section-summary-content" });
-    summaryContent.createSpan({ cls: "weather-settings__section-summary-title", text: summary });
-    if (description && description.trim().length > 0) {
-            summaryContent.createSpan({ cls: "weather-settings__section-summary-description", text: description });
+        if (sections.length === 0) {
+      return;
     }
-    const body = detailsEl.createDiv({ cls: "weather-settings__section-body" });
-    renderer(body);
+    const tabsEl = containerEl.createDiv({ cls: "weather-settings__tabs" });
+    const tabList = tabsEl.createDiv({ cls: "weather-settings__tab-list", attr: { role: "tablist" } });
+    const panelsEl = tabsEl.createDiv({ cls: "weather-settings__tab-panels" });
+    const tabButtons = new Map<string, HTMLButtonElement>();
+    const panels = new Map<string, HTMLDivElement>();
+
+    const setActiveTab = (id: string): void => {
+      tabButtons.forEach((button, key) => {
+        const isActive = key === id;
+        button.classList.toggle("is-active", isActive);
+        button.setAttr("aria-selected", String(isActive));
+        button.setAttr("tabindex", isActive ? "0" : "-1");
+      });
+      panels.forEach((panel, key) => {
+        const isActive = key === id;
+        panel.classList.toggle("is-active", isActive);
+        panel.classList.toggle("is-hidden", !isActive);
+      });
+    };
+
+    sections.forEach((section, index) => {
+      const tabId = `weather-settings-tab-${section.id}`;
+      const panelId = `${tabId}-panel`;
+      const button = tabList.createEl("button", {
+        cls: "weather-settings__tab-button",
+        text: section.title,
+        attr: {
+          role: "tab",
+          type: "button",
+          id: tabId,
+          "aria-controls": panelId,
+          "aria-selected": index === 0 ? "true" : "false",
+        },
+      });
+      if (index !== 0) {
+                button.setAttr("tabindex", "-1");
+      }
+      button.addEventListener("click", () => {
+        setActiveTab(section.id);
+      });
+      tabButtons.set(section.id, button);
+
+      const panel = panelsEl.createDiv({
+        cls: `weather-settings__tab-panel${index === 0 ? " is-active" : ""}`,
+        attr: {
+          role: "tabpanel",
+          id: panelId,
+          "aria-labelledby": tabId,
+        },
+      });
+      if (index !== 0) {
+                panel.classList.add("is-hidden");
+      }
+      if (section.description && section.description.trim().length > 0) {
+                panel.createEl("p", { cls: "weather-settings__tab-description", text: section.description });
+      }
+      const body = panel.createDiv({ cls: "weather-settings__tab-body" });
+      section.renderer(body);
+      panels.set(section.id, panel);
+    });
+
+    if (sections.length > 0) {
+            setActiveTab(sections[0].id);
+    }
   }
   private renderGradientPreviewSection(parent: HTMLElement, strings: LocaleStrings): void {
     const previewSection = parent.createDiv({ cls: "weather-settings__preview-section" });
-    this.appendSectionHeader(previewSection, strings.settings.preview.heading, strings.settings.preview.description, { divider: true });
+    const previewHeading = new Setting(previewSection)
+    .setName(strings.settings.preview.heading)
+      .setDesc(strings.settings.preview.description)
+      .setHeading();
+    previewHeading.settingEl.addClass("weather-settings__inline-heading");
+    previewSection.createDiv({ cls: "weather-settings__section-divider" });
     const widgetWrapper = previewSection.createDiv({ cls: "weather-settings__preview-widget" });
     const row = widgetWrapper.createDiv({ cls: "ow-row weather-widget__row weather-settings__preview-row" });
     this.previewRow = row;
@@ -1538,7 +1629,11 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderOtherSection(parent: HTMLElement, strings: LocaleStrings): void {
         const section = parent.createDiv({ cls: "weather-settings__section" });
-    this.appendSectionHeader(section, strings.settings.other.heading, strings.settings.other.description);
+    const otherHeading = new Setting(section)
+    .setName(strings.settings.other.heading)
+      .setDesc(strings.settings.other.description)
+      .setHeading();
+    otherHeading.settingEl.addClass("weather-settings__inline-heading");
     this.addNumberSetting(
       section,
       strings.settings.gradients.edgeWidthLabel,
@@ -1611,12 +1706,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
   private renderResetSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    new Setting(section)
+    const resetSetting = new Setting(section)
     .setName(strings.settings.reset.heading)
-      .setDesc(strings.settings.reset.description)
-      .setHeading();
-    new Setting(section)
-      .addButton((button) => {
+      .setDesc(strings.settings.reset.description);
+    resetSetting.addButton((button) => {
                 button
         .setButtonText(strings.actions.reset)
           .setWarning()
