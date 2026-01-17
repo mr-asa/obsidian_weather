@@ -1,4 +1,3 @@
-import type { LocaleCode } from "./i18n/types";
 import type { AlphaEasingProfile } from "./utils/alpha-gradient";
 export type TimeOfDayKey = "morning" | "day" | "evening" | "night";
 export type WeatherCategory = "sunny" | "cloudy" | "rainy" | "snowy" | "drizzle" | "storm" | "foggy";
@@ -113,7 +112,6 @@ export interface DaySpanSettings {
 export type TemperatureUnit = "celsius" | "fahrenheit";
 
 export interface WeatherWidgetSettings {
-    language: LocaleCode;
   cities: CityLocation[];
   weatherCacheMinutes: number;
   autoRefreshMinutes: number;
@@ -153,7 +151,6 @@ export const TIME_OF_DAY_KEYS: TimeOfDayKey[] = [
   "night",
 ];
 export const DEFAULT_SETTINGS: WeatherWidgetSettings = {
-  language: "en",
   cities: [],
   weatherCacheMinutes: 60,
   autoRefreshMinutes: 15,

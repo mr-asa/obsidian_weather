@@ -15,8 +15,16 @@ export function registerCommands(plugin: WeatherPlugin, canvasBridge: CanvasBrid
   plugin.addCommand({
     id: "insert-canvas",
     name: strings.commands.insertCanvas,
-    callback: () => {
+    checkCallback: (checking) => {
+      const hasCanvas = canvasBridge.hasActiveCanvasView();
+      if (checking) {
+        return hasCanvas;
+      }
+      if (!hasCanvas) {
+        return false;
+      }
       canvasBridge.insertWidgetPlaceholder();
+      return true;
     },
   });
 }

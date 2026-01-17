@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf } from "obsidian";
+import { App, Plugin, WorkspaceLeaf } from "obsidian";
 import { CanvasBridge } from "./canvas/canvas-bridge";
 import { registerCommands } from "./commands";
 import { registerMarkdownWeatherWidget } from "./markdown/weather-codeblock";
@@ -14,9 +14,9 @@ import {
 } from "./settings";
 import { WeatherSettingsTab } from "./settings-tab";
 import { WEATHER_WIDGET_VIEW_TYPE, WeatherWidgetView } from "./ui/weather-widget-view";
-import type { WeatherWidget } from "./ui/weather-widget";
+import { WeatherWidget } from "./ui/weather-widget";
 import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
-import type { LocaleCode } from "./i18n/types";
+import { DEFAULT_LOCALE, type LocaleCode } from "./i18n/types";
 import { createId } from "./utils/id";
 import { mergeCityLists } from "./utils/city";
 import { WeatherService, type WeatherSnapshot } from "./services/weather-service";
@@ -27,34 +27,15 @@ export default class WeatherPlugin extends Plugin {
   private strings: LocaleStrings;
   private weatherService: WeatherService;
   private weatherData = new Map<string, WeatherSnapshot>();
-  private widgetInstances = new Set<WeatherWidget>();
   private refreshIntervalId: number | null = null;
   private widgetMinuteIntervalId: number | null = null;
   private widgetMinuteTimeoutId: number | null = null;
   private lastWidgetMinute: number | null = null;
   private providerSignature: string | null = null;
-  private viewRegistered = false;
   async onload(): Promise<void> {
     this.weatherService = new WeatherService();
     await this.loadSettings();
-    this.unregisterExistingViewType();
-    if (!this.viewRegistered) {
-      try {
-        this.registerView(WEATHER_WIDGET_VIEW_TYPE, (leaf) => new WeatherWidgetView(leaf, this));
-        this.viewRegistered = true;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("Attempting to register an existing view type")) {
-          console.warn(
-            "WeatherPlugin: view type already registered – continuing without re-registering.",
-            error,
-          );
-          this.viewRegistered = true;
-        } else {
-          throw error;
-        }
-      }
-    }
+    this.registerView(WEATHER_WIDGET_VIEW_TYPE, (leaf) => new WeatherWidgetView(leaf, this));
     this.canvasBridge = new CanvasBridge(this);
     registerCommands(this, this.canvasBridge);
     registerMarkdownWeatherWidget(this);
@@ -81,9 +62,6 @@ export default class WeatherPlugin extends Plugin {
     this.lastWidgetMinute = null;
     this.weatherService?.clear();
     this.weatherData.clear();
-    this.widgetInstances.clear();
-    this.unregisterExistingViewType();
-    this.viewRegistered = false;
   }
   async activateView(): Promise<void> {
         const { workspace } = this.app;
@@ -97,37 +75,21 @@ export default class WeatherPlugin extends Plugin {
     }
     await workspace.revealLeaf(leaf);
   }
-  registerWidget(widget: WeatherWidget): void {
-        this.widgetInstances.add(widget);
-    void this.refreshInlineCities(widget.getInlineCities());
-  }
-  unregisterWidget(widget: WeatherWidget): void {
-        this.widgetInstances.delete(widget);
-    void this.refreshWeatherData();
-  }
   requestWidgetRefresh(): void {
-    for (const widget of Array.from(this.widgetInstances)) {
-      if (!widget.isMounted()) {
-        continue;
-      }
-      try {
-        widget.update();
-      } catch (error) {
-        console.error("WeatherPlugin: failed to update widget", error);
-      }
-    }
+    this.refreshWidgetHosts();
   }
   private collectInlineCities(): CityLocation[] {
     const combined: CityLocation[] = [];
-    for (const widget of this.widgetInstances) {
-      const inline = widget.getInlineCities();
+    const hosts = this.app.workspace.containerEl.querySelectorAll<HTMLElement>(".ow-widget-host");
+    hosts.forEach((host) => {
+      const inline = WeatherWidget.readHostOptions(host).inlineCities ?? [];
       if (inline.length > 0) {
         combined.push(...inline);
       }
-    }
+    });
     return combined;
   }
-  private async refreshInlineCities(cities: CityLocation[]): Promise<void> {
+  async refreshInlineCities(cities: CityLocation[]): Promise<void> {
     if (!cities || cities.length === 0) {
       return;
     }
@@ -168,33 +130,6 @@ export default class WeatherPlugin extends Plugin {
       console.error("WeatherPlugin: initial weather refresh failed", error);
     }
   }
-  private unregisterExistingViewType(): void {
-    const workspace = this.app.workspace as unknown as {
-      viewRegistry?: {
-        unregisterView?: (type: string) => void;
-        viewByType?: Record<string, unknown>;
-        typeList?: string[];
-      };
-    };
-    const registry = workspace?.viewRegistry;
-    if (!registry) {
-      return;
-    }
-    if (typeof registry.unregisterView === "function") {
-      try {
-        registry.unregisterView(WEATHER_WIDGET_VIEW_TYPE);
-      } catch (error) {
-        console.warn("WeatherPlugin: failed to unregister view via API", error);
-      }
-      return;
-    }
-    if (registry.viewByType && WEATHER_WIDGET_VIEW_TYPE in registry.viewByType) {
-      delete registry.viewByType[WEATHER_WIDGET_VIEW_TYPE];
-    }
-    if (Array.isArray(registry.typeList)) {
-      registry.typeList = registry.typeList.filter((type) => type !== WEATHER_WIDGET_VIEW_TYPE);
-    }
-  }
   onSettingsTabClosed(): void {
         this.scheduleWidgetMinuteUpdates();
     this.requestWidgetRefresh();
@@ -219,8 +154,20 @@ export default class WeatherPlugin extends Plugin {
         return this.strings.weatherConditions[category] ?? category;
   }
   private applyLocalization(): void {
-        this.locale = this.settings.language;
+        const appLanguage = (this.app as App & { getLanguage?: () => string }).getLanguage?.() ?? DEFAULT_LOCALE;
+    this.locale = appLanguage.startsWith("ru") ? "ru" : DEFAULT_LOCALE;
     this.strings = getLocaleStrings(this.locale);
+  }
+  private refreshWidgetHosts(): void {
+    const hosts = this.app.workspace.containerEl.querySelectorAll<HTMLElement>(".ow-widget-host");
+    hosts.forEach((host) => {
+      try {
+        const options = WeatherWidget.readHostOptions(host);
+        WeatherWidget.renderIntoHost(this, host, options);
+      } catch (error) {
+        console.error("WeatherPlugin: failed to update widget host", error);
+      }
+    });
   }
   private computeProviderSignature(provider: WeatherProviderId, apiKey: string): string {
         return `${provider}:${apiKey}`;

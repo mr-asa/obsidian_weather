@@ -1,7 +1,6 @@
-import { App, Modal, PluginSettingTab, Setting } from "obsidian";
+import { App, ButtonComponent, Modal, PluginSettingTab, Setting } from "obsidian";
 import type WeatherPlugin from "./main";
-import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
-import type { LocaleCode } from "./i18n/types";
+import type { LocaleStrings } from "./i18n/strings";
 import {
     DEFAULT_SETTINGS,
   WEATHER_CATEGORIES,
@@ -208,7 +207,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
 
   private getStringsForRendering(): LocaleStrings {
-        const strings = getLocaleStrings(this.editableSettings.language);
+        const strings = this.plugin.getStrings();
     this.latestStrings = strings;
     return strings;
   }
@@ -217,7 +216,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
     containerEl.empty();
     this.temperatureTableBody = undefined;
     const strings = this.getStringsForRendering();
-    this.renderLocalizationSection(containerEl, strings);
     this.renderWidgetUpdatesSection(containerEl, strings);
     this.renderLocationsSection(containerEl, strings);
     this.renderGradientPreviewSection(containerEl, strings);
@@ -243,27 +241,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
     if (options.divider) {
             container.createDiv({ cls: "weather-settings__section-divider" });
     }
-  }
-  private renderLocalizationSection(containerEl: HTMLElement, strings: LocaleStrings): void {
-        const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    const localizationSetting = new Setting(section)
-    .setName(strings.settings.localization.heading)
-      .setDesc(strings.settings.localization.languageDescription);
-    localizationSetting.addDropdown((dropdown) => {
-            (Object.keys(strings.languageNames) as LocaleCode[]).forEach((code) => {
-                dropdown.addOption(code, strings.languageNames[code]);
-      });
-      dropdown.setValue(this.editableSettings.language);
-      dropdown.onChange((value) => {
-                const nextLocale = value as LocaleCode;
-        if (this.editableSettings.language === nextLocale) {
-                    return;
-        }
-        this.editableSettings.language = nextLocale;
-        this.markSettingsDirty();
-        this.display();
-      });
-    });
   }
   private renderWidgetUpdatesSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
@@ -1287,7 +1264,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       panels.forEach((panel, key) => {
         const isActive = key === id;
         panel.classList.toggle("is-active", isActive);
-        panel.classList.toggle("is-hidden", !isActive);
+        panel.classList.toggle("ow-is-hidden", !isActive);
       });
     };
 
@@ -1322,7 +1299,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         },
       });
       if (index !== 0) {
-                panel.classList.add("is-hidden");
+                panel.classList.add("ow-is-hidden");
       }
       if (section.description && section.description.trim().length > 0) {
                 panel.createEl("p", { cls: "weather-settings__tab-description", text: section.description });
@@ -1685,7 +1662,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
           ? configured.trim()
           : PREVIEW_TIME_EMOJIS[derivedPhase]?.trim() ?? "";
       this.previewTimeIconEl.textContent = icon;
-      this.previewTimeIconEl.classList.toggle("is-hidden", icon.length === 0);
+      this.previewTimeIconEl.classList.toggle("ow-is-hidden", icon.length === 0);
     }
     if (this.previewTimeTextEl) {
       this.previewTimeTextEl.textContent = timeLabel;
@@ -1701,7 +1678,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       );
       const shouldShowDate = this.editableSettings.showDateWhenDifferent;
       this.previewDateEl.textContent = shouldShowDate ? dateLabel : "";
-      this.previewDateEl.classList.toggle("is-hidden", !shouldShowDate);
+      this.previewDateEl.classList.toggle("ow-is-hidden", !shouldShowDate);
     }
     const rawWeatherIcon = categoryStyle?.icon;
     const fallbackWeatherIcon =
@@ -1711,7 +1688,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     const weatherLabel = this.plugin.translateWeatherCategory(this.sampleWeatherCategory);
     if (this.previewWeatherIconEl) {
       this.previewWeatherIconEl.textContent = weatherIcon;
-      this.previewWeatherIconEl.classList.toggle("is-hidden", weatherIcon.length === 0);
+      this.previewWeatherIconEl.classList.toggle("ow-is-hidden", weatherIcon.length === 0);
     }
     if (this.previewWeatherTextEl) {
       this.previewWeatherTextEl.textContent = weatherLabel;
@@ -1997,10 +1974,13 @@ class WeatherConfirmationModal extends Modal {
     contentEl.empty();
     contentEl.createEl("p", { text: this.options.message, cls: "weather-settings__confirm-message" });
     const buttonRow = contentEl.createDiv({ cls: "weather-settings__confirm-buttons" });
-    const confirmButton = buttonRow.createEl("button", { cls: "mod-cta", text: this.options.confirmLabel });
-    confirmButton.addEventListener("click", () => this.closeWith(true));
-    const cancelButton = buttonRow.createEl("button", { text: this.options.cancelLabel });
-    cancelButton.addEventListener("click", () => this.closeWith(false));
+    new ButtonComponent(buttonRow)
+      .setButtonText(this.options.confirmLabel)
+      .setCta()
+      .onClick(() => this.closeWith(true));
+    new ButtonComponent(buttonRow)
+      .setButtonText(this.options.cancelLabel)
+      .onClick(() => this.closeWith(false));
   }
 
   onClose(): void {

@@ -70,21 +70,25 @@ function parseInlineCities(source: string): ParsedInlineCities {
 export function registerMarkdownWeatherWidget(plugin: WeatherPlugin): void {
   plugin.registerMarkdownCodeBlockProcessor("weather-widget", (source, element, ctx: MarkdownPostProcessorContext) => {
     const parsed = parseInlineCities(source);
-    const widget = new WeatherWidget(plugin, {
+    const options = {
       inlineCities: parsed.cities,
       rowHeight: parsed.rowHeight ?? undefined,
-    });
-    widget.mount(element);
+    };
+    WeatherWidget.renderIntoHost(plugin, element, options);
+    void plugin.refreshInlineCities(parsed.cities);
 
     ctx.addChild(new (class extends MarkdownRenderChild {
-      constructor(el: HTMLElement, private readonly widgetRef: WeatherWidget) {
+      constructor(el: HTMLElement) {
         super(el);
       }
 
       onunload(): void {
-        this.widgetRef.unmount();
+        this.containerEl.classList.remove("ow-widget-host");
+        this.containerEl.replaceChildren();
+        delete this.containerEl.dataset.owInlineCities;
+        delete this.containerEl.dataset.owRowHeight;
       }
-    })(element, widget));
+    })(element));
 
     const trimmedSource = source.trim();
     if (parsed.errors.length > 0) {

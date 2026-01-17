@@ -41,6 +41,10 @@ export class CanvasBridge {
     new Notice(strings.notices.canvasPlaceholderAdded);
   }
 
+  hasActiveCanvasView(): boolean {
+    return this.getActiveCanvasView() != null;
+  }
+
   private getActiveCanvasView(): CanvasView | null {
     const view = this.plugin.app.workspace.getActiveViewOfType(ItemView);
     if (!view || view.getViewType() !== "canvas") {
