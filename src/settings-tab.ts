@@ -257,10 +257,10 @@ export class WeatherSettingsTab extends PluginSettingTab {
       const systemOption = strings.settings.localization.systemOption.replace("{language}", systemLabel);
       dropdown.addOption("system", systemOption);
       (Object.keys(strings.languageNames) as Array<LanguageOverride>).forEach((code) => {
-                if (code === "system") {
+                if (code === "system" || code === systemLocale) {
           return;
         }
-        dropdown.addOption(code, strings.languageNames[code as Exclude<LanguageOverride, "system">]);
+        dropdown.addOption(code, strings.languageNames[code]);
       });
       dropdown.setValue(this.editableSettings.languageOverride);
       dropdown.onChange((value) => {
