@@ -1,6 +1,6 @@
 import { App, ButtonComponent, Modal, PluginSettingTab, Setting } from "obsidian";
 import type WeatherPlugin from "./main";
-import type { LocaleStrings } from "./i18n/strings";
+import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
 import {
     DEFAULT_SETTINGS,
   WEATHER_CATEGORIES,
@@ -11,6 +11,7 @@ import {
   type TimeOfDayKey,
   type WeatherProviderId,
   type WeatherWidgetSettings,
+  type LanguageOverride,
 } from "./settings";
 import { clamp } from "./utils/math";
 import { ensureHex, lerpColorGamma } from "./utils/color";
@@ -207,15 +208,18 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
 
   private getStringsForRendering(): LocaleStrings {
-        const strings = this.plugin.getStrings();
+        const locale = this.plugin.resolveLocaleOverride(this.editableSettings.languageOverride);
+    const strings = getLocaleStrings(locale);
     this.latestStrings = strings;
     return strings;
   }
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass("weather-settings");
     this.temperatureTableBody = undefined;
     const strings = this.getStringsForRendering();
+    this.renderLocalizationSection(containerEl, strings);
     this.renderWidgetUpdatesSection(containerEl, strings);
     this.renderLocationsSection(containerEl, strings);
     this.renderGradientPreviewSection(containerEl, strings);
@@ -241,6 +245,34 @@ export class WeatherSettingsTab extends PluginSettingTab {
     if (options.divider) {
             container.createDiv({ cls: "weather-settings__section-divider" });
     }
+  }
+  private renderLocalizationSection(containerEl: HTMLElement, strings: LocaleStrings): void {
+        const section = containerEl.createDiv({ cls: "weather-settings__section" });
+    const localizationSetting = new Setting(section)
+    .setName(strings.settings.localization.languageLabel)
+      .setDesc(strings.settings.localization.languageDescription);
+    localizationSetting.addDropdown((dropdown) => {
+            const systemLocale = this.plugin.getAppLanguageCode();
+      const systemLabel = strings.languageNames[systemLocale] ?? systemLocale;
+      const systemOption = strings.settings.localization.systemOption.replace("{language}", systemLabel);
+      dropdown.addOption("system", systemOption);
+      (Object.keys(strings.languageNames) as Array<LanguageOverride>).forEach((code) => {
+                if (code === "system") {
+          return;
+        }
+        dropdown.addOption(code, strings.languageNames[code as Exclude<LanguageOverride, "system">]);
+      });
+      dropdown.setValue(this.editableSettings.languageOverride);
+      dropdown.onChange((value) => {
+                const nextLocale = value as LanguageOverride;
+        if (this.editableSettings.languageOverride === nextLocale) {
+                    return;
+        }
+        this.editableSettings.languageOverride = nextLocale;
+        this.markSettingsDirty();
+        this.display();
+      });
+    });
   }
   private renderWidgetUpdatesSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });
@@ -437,7 +469,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
     applyProviderState();
   }
   private renderLocationsSection(containerEl: HTMLElement, strings: LocaleStrings): void {
-        const section = containerEl.createDiv({ cls: "weather-settings__section" });
+        const section = containerEl.createDiv({ cls: "weather-settings__section weather-settings__section--panel" });
     const headerSetting = new Setting(section)
     .setName(strings.settings.locations.heading)
       .setDesc(strings.settings.locations.description)
@@ -552,7 +584,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
         const cell = row.insertCell();
     const input = cell.createEl("input", {
             cls: "weather-settings__table-input",
-      attr: { type: "number", step: "0.0001" },
+      attr: { type: "number", step: "0.0001", inputmode: "decimal" },
     });
     input.value = String(city[key]);
     const commitValue = (raw: string) => {
@@ -1240,6 +1272,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
       },
     ];
     this.renderTabbedSections(section, tabs);
+    section.createDiv({ cls: "weather-settings__tabs-divider" });
   }
   private renderTabbedSections(
         containerEl: HTMLElement,
@@ -1314,13 +1347,14 @@ export class WeatherSettingsTab extends PluginSettingTab {
     }
   }
   private renderGradientPreviewSection(parent: HTMLElement, strings: LocaleStrings): void {
-    const previewSection = parent.createDiv({ cls: "weather-settings__preview-section" });
+    const previewSection = parent.createDiv({
+      cls: "weather-settings__section weather-settings__section--panel weather-settings__preview-section",
+    });
     const previewHeading = new Setting(previewSection)
     .setName(strings.settings.preview.heading)
       .setDesc(strings.settings.preview.description)
       .setHeading();
     previewHeading.settingEl.addClass("weather-settings__inline-heading");
-    previewSection.createDiv({ cls: "weather-settings__section-divider" });
     const widgetWrapper = previewSection.createDiv({ cls: "weather-settings__preview-widget" });
     const row = widgetWrapper.createDiv({ cls: "ow-row weather-widget__row weather-settings__preview-row" });
     this.previewRow = row;

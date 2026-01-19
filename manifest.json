@@ -1,0 +1,10 @@
+{
+  "id": "weather-widget",
+  "name": "Weather Widget",
+  "version": "0.1.7",
+  "minAppVersion": "1.8.0",
+  "description": "Weather widget for display in notes, Canvas, and a separate tab.",
+  "author": "mr-asa",
+  "fundingUrl": "https://buymeacoffee.com/mr.asa",
+  "isDesktopOnly": false
+}

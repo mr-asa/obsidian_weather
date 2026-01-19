@@ -11,6 +11,7 @@ import {
   type CityLocation,
   type WeatherCategory,
   type WeatherProviderId,
+  type LanguageOverride,
 } from "./settings";
 import { WeatherSettingsTab } from "./settings-tab";
 import { WEATHER_WIDGET_VIEW_TYPE, WeatherWidgetView } from "./ui/weather-widget-view";
@@ -147,6 +148,16 @@ export default class WeatherPlugin extends Plugin {
   getLocale(): LocaleCode {
         return this.locale;
   }
+  getAppLanguageCode(): LocaleCode {
+    const appLanguage = (this.app as App & { getLanguage?: () => string }).getLanguage?.() ?? DEFAULT_LOCALE;
+    return appLanguage.startsWith("ru") ? "ru" : DEFAULT_LOCALE;
+  }
+  resolveLocaleOverride(override: LanguageOverride): LocaleCode {
+    if (override === "en" || override === "ru") {
+      return override;
+    }
+    return this.getAppLanguageCode();
+  }
   getWeatherSnapshot(cityId: string): WeatherSnapshot | undefined {
         return this.weatherData.get(cityId);
   }
@@ -154,8 +165,7 @@ export default class WeatherPlugin extends Plugin {
         return this.strings.weatherConditions[category] ?? category;
   }
   private applyLocalization(): void {
-        const appLanguage = (this.app as App & { getLanguage?: () => string }).getLanguage?.() ?? DEFAULT_LOCALE;
-    this.locale = appLanguage.startsWith("ru") ? "ru" : DEFAULT_LOCALE;
+        this.locale = this.resolveLocaleOverride(this.settings.languageOverride);
     this.strings = getLocaleStrings(this.locale);
   }
   private refreshWidgetHosts(): void {
@@ -180,6 +190,15 @@ export default class WeatherPlugin extends Plugin {
   }
   private normalizeSettings(): void {
         const defaults = DEFAULT_SETTINGS;
+    const override = (this.settings as Partial<WeatherWidgetSettings> & { language?: string }).languageOverride;
+    const legacyLanguage = (this.settings as Partial<WeatherWidgetSettings> & { language?: string }).language;
+    if (override === "en" || override === "ru" || override === "system") {
+      this.settings.languageOverride = override;
+    } else if (legacyLanguage === "en" || legacyLanguage === "ru") {
+      this.settings.languageOverride = legacyLanguage;
+    } else {
+      this.settings.languageOverride = "system";
+    }
     if (!Array.isArray(this.settings.cities)) {
             this.settings.cities = [];
     }

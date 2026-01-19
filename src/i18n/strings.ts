@@ -5,11 +5,12 @@ import type { MonthNameSet } from "../utils/date-format";
 export interface LocaleStrings {
   languageNames: Record<LocaleCode, string>;
   settings: {
-    localization: {
-      heading: string;
-      languageLabel: string;
-      languageDescription: string;
-    };
+      localization: {
+        heading: string;
+        languageLabel: string;
+        languageDescription: string;
+        systemOption: string;
+      };
     widgetUpdates: {
       heading: string;
       description: string;
@@ -204,7 +205,8 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       localization: {
         heading: "Localization",
         languageLabel: "Interface language",
-        languageDescription: "Switch the plugin UI between Russian and English.",
+        languageDescription: "Use the system language or override it for this plugin.",
+        systemOption: "System ({language})",
       },
       widgetUpdates: {
         heading: "Widget updates",
@@ -453,7 +455,8 @@ export const LOCALE_STRINGS: Record<LocaleCode, LocaleStrings> = {
       localization: {
         heading: "Локализация",
         languageLabel: "Язык интерфейса",
-        languageDescription: "Переключайте плагин между русским и английским языками.",
+        languageDescription: "Используйте системный язык или задайте язык для плагина.",
+        systemOption: "Системный ({language})",
       },
       widgetUpdates: {
         heading: "Обновления виджета",
