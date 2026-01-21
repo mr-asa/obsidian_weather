@@ -1,4 +1,4 @@
-import { App, Plugin, WorkspaceLeaf } from "obsidian";
+import { Plugin, WorkspaceLeaf, getLanguage } from "obsidian";
 import { CanvasBridge } from "./canvas/canvas-bridge";
 import { registerCommands } from "./commands";
 import { registerMarkdownWeatherWidget } from "./markdown/weather-codeblock";
@@ -11,11 +11,9 @@ import {
   type CityLocation,
   type WeatherCategory,
   type WeatherProviderId,
-  type LanguageOverride,
 } from "./settings";
 import { WeatherSettingsTab } from "./settings-tab";
 import { WEATHER_WIDGET_VIEW_TYPE, WeatherWidgetView } from "./ui/weather-widget-view";
-import { WeatherWidget } from "./ui/weather-widget";
 import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
 import { DEFAULT_LOCALE, type LocaleCode } from "./i18n/types";
 import { createId } from "./utils/id";
@@ -28,6 +26,7 @@ export default class WeatherPlugin extends Plugin {
   private strings: LocaleStrings;
   private weatherService: WeatherService;
   private weatherData = new Map<string, WeatherSnapshot>();
+  private inlineCityMap = new Map<string, CityLocation[]>();
   private refreshIntervalId: number | null = null;
   private widgetMinuteIntervalId: number | null = null;
   private widgetMinuteTimeoutId: number | null = null;
@@ -77,17 +76,15 @@ export default class WeatherPlugin extends Plugin {
     await workspace.revealLeaf(leaf);
   }
   requestWidgetRefresh(): void {
-    this.refreshWidgetHosts();
+    this.app.workspace.trigger("weather-widget:rerender");
   }
   private collectInlineCities(): CityLocation[] {
     const combined: CityLocation[] = [];
-    const hosts = this.app.workspace.containerEl.querySelectorAll<HTMLElement>(".ow-widget-host");
-    hosts.forEach((host) => {
-      const inline = WeatherWidget.readHostOptions(host).inlineCities ?? [];
-      if (inline.length > 0) {
-        combined.push(...inline);
+    for (const cities of this.inlineCityMap.values()) {
+      if (cities.length > 0) {
+        combined.push(...cities);
       }
-    });
+    }
     return combined;
   }
   async refreshInlineCities(cities: CityLocation[]): Promise<void> {
@@ -148,16 +145,6 @@ export default class WeatherPlugin extends Plugin {
   getLocale(): LocaleCode {
         return this.locale;
   }
-  getAppLanguageCode(): LocaleCode {
-    const appLanguage = (this.app as App & { getLanguage?: () => string }).getLanguage?.() ?? DEFAULT_LOCALE;
-    return appLanguage.startsWith("ru") ? "ru" : DEFAULT_LOCALE;
-  }
-  resolveLocaleOverride(override: LanguageOverride): LocaleCode {
-    if (override === "en" || override === "ru") {
-      return override;
-    }
-    return this.getAppLanguageCode();
-  }
   getWeatherSnapshot(cityId: string): WeatherSnapshot | undefined {
         return this.weatherData.get(cityId);
   }
@@ -165,19 +152,18 @@ export default class WeatherPlugin extends Plugin {
         return this.strings.weatherConditions[category] ?? category;
   }
   private applyLocalization(): void {
-        this.locale = this.resolveLocaleOverride(this.settings.languageOverride);
+        const appLanguage = getLanguage() ?? DEFAULT_LOCALE;
+    this.locale = appLanguage.startsWith("ru") ? "ru" : DEFAULT_LOCALE;
     this.strings = getLocaleStrings(this.locale);
   }
-  private refreshWidgetHosts(): void {
-    const hosts = this.app.workspace.containerEl.querySelectorAll<HTMLElement>(".ow-widget-host");
-    hosts.forEach((host) => {
-      try {
-        const options = WeatherWidget.readHostOptions(host);
-        WeatherWidget.renderIntoHost(this, host, options);
-      } catch (error) {
-        console.error("WeatherPlugin: failed to update widget host", error);
-      }
-    });
+  registerInlineCities(key: string, cities: CityLocation[]): void {
+    this.inlineCityMap.set(key, cities.map((city) => ({ ...city })));
+    void this.refreshInlineCities(cities);
+  }
+  unregisterInlineCities(key: string): void {
+    if (this.inlineCityMap.delete(key)) {
+      void this.refreshWeatherData();
+    }
   }
   private computeProviderSignature(provider: WeatherProviderId, apiKey: string): string {
         return `${provider}:${apiKey}`;
@@ -190,15 +176,8 @@ export default class WeatherPlugin extends Plugin {
   }
   private normalizeSettings(): void {
         const defaults = DEFAULT_SETTINGS;
-    const override = (this.settings as Partial<WeatherWidgetSettings> & { language?: string }).languageOverride;
-    const legacyLanguage = (this.settings as Partial<WeatherWidgetSettings> & { language?: string }).language;
-    if (override === "en" || override === "ru" || override === "system") {
-      this.settings.languageOverride = override;
-    } else if (legacyLanguage === "en" || legacyLanguage === "ru") {
-      this.settings.languageOverride = legacyLanguage;
-    } else {
-      this.settings.languageOverride = "system";
-    }
+    delete (this.settings as Partial<WeatherWidgetSettings> & { languageOverride?: unknown }).languageOverride;
+    delete (this.settings as Partial<WeatherWidgetSettings> & { language?: unknown }).language;
     if (!Array.isArray(this.settings.cities)) {
             this.settings.cities = [];
     }

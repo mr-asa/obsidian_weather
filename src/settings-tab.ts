@@ -1,6 +1,6 @@
 import { App, ButtonComponent, Modal, PluginSettingTab, Setting } from "obsidian";
 import type WeatherPlugin from "./main";
-import { getLocaleStrings, type LocaleStrings } from "./i18n/strings";
+import { type LocaleStrings } from "./i18n/strings";
 import {
     DEFAULT_SETTINGS,
   WEATHER_CATEGORIES,
@@ -11,7 +11,6 @@ import {
   type TimeOfDayKey,
   type WeatherProviderId,
   type WeatherWidgetSettings,
-  type LanguageOverride,
 } from "./settings";
 import { clamp } from "./utils/math";
 import { ensureHex, lerpColorGamma } from "./utils/color";
@@ -208,8 +207,7 @@ export class WeatherSettingsTab extends PluginSettingTab {
   }
 
   private getStringsForRendering(): LocaleStrings {
-        const locale = this.plugin.resolveLocaleOverride(this.editableSettings.languageOverride);
-    const strings = getLocaleStrings(locale);
+    const strings = this.plugin.getStrings();
     this.latestStrings = strings;
     return strings;
   }
@@ -219,7 +217,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
     containerEl.addClass("weather-settings");
     this.temperatureTableBody = undefined;
     const strings = this.getStringsForRendering();
-    this.renderLocalizationSection(containerEl, strings);
     this.renderWidgetUpdatesSection(containerEl, strings);
     this.renderLocationsSection(containerEl, strings);
     this.renderGradientPreviewSection(containerEl, strings);
@@ -245,34 +242,6 @@ export class WeatherSettingsTab extends PluginSettingTab {
     if (options.divider) {
             container.createDiv({ cls: "weather-settings__section-divider" });
     }
-  }
-  private renderLocalizationSection(containerEl: HTMLElement, strings: LocaleStrings): void {
-        const section = containerEl.createDiv({ cls: "weather-settings__section" });
-    const localizationSetting = new Setting(section)
-    .setName(strings.settings.localization.languageLabel)
-      .setDesc(strings.settings.localization.languageDescription);
-    localizationSetting.addDropdown((dropdown) => {
-            const systemLocale = this.plugin.getAppLanguageCode();
-      const systemLabel = strings.languageNames[systemLocale] ?? systemLocale;
-      const systemOption = strings.settings.localization.systemOption.replace("{language}", systemLabel);
-      dropdown.addOption("system", systemOption);
-      (Object.keys(strings.languageNames) as Array<LanguageOverride>).forEach((code) => {
-                if (code === "system" || code === systemLocale) {
-          return;
-        }
-        dropdown.addOption(code, strings.languageNames[code]);
-      });
-      dropdown.setValue(this.editableSettings.languageOverride);
-      dropdown.onChange((value) => {
-                const nextLocale = value as LanguageOverride;
-        if (this.editableSettings.languageOverride === nextLocale) {
-                    return;
-        }
-        this.editableSettings.languageOverride = nextLocale;
-        this.markSettingsDirty();
-        this.display();
-      });
-    });
   }
   private renderWidgetUpdatesSection(containerEl: HTMLElement, strings: LocaleStrings): void {
         const section = containerEl.createDiv({ cls: "weather-settings__section" });

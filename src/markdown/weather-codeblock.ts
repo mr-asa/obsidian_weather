@@ -3,6 +3,7 @@ import type WeatherPlugin from "../main";
 import { WeatherWidget } from "../ui/weather-widget";
 import type { CityLocation } from "../settings";
 import { citySignatureFromValues, makeInlineCityId } from "../utils/city";
+import { createId } from "../utils/id";
 
 const CITY_LINE_REGEX = /^"([^"]+)"\s+([+-]?\d+(?:\.\d+)?)\s+([+-]?\d+(?:\.\d+)?)$/;
 
@@ -70,25 +71,36 @@ function parseInlineCities(source: string): ParsedInlineCities {
 export function registerMarkdownWeatherWidget(plugin: WeatherPlugin): void {
   plugin.registerMarkdownCodeBlockProcessor("weather-widget", (source, element, ctx: MarkdownPostProcessorContext) => {
     const parsed = parseInlineCities(source);
-    const options = {
-      inlineCities: parsed.cities,
-      rowHeight: parsed.rowHeight ?? undefined,
-    };
-    WeatherWidget.renderIntoHost(plugin, element, options);
-    void plugin.refreshInlineCities(parsed.cities);
-
     ctx.addChild(new (class extends MarkdownRenderChild {
-      constructor(el: HTMLElement) {
+      private widget: WeatherWidget | null = null;
+      private readonly inlineKey: string;
+      constructor(el: HTMLElement, private readonly pluginRef: WeatherPlugin) {
         super(el);
+        this.inlineKey = createId("inline");
+      }
+
+      onload(): void {
+        this.widget = new WeatherWidget(this.pluginRef, {
+          inlineCities: parsed.cities,
+          rowHeight: parsed.rowHeight ?? undefined,
+        });
+        this.widget.mount(this.containerEl);
+        this.pluginRef.registerInlineCities(this.inlineKey, parsed.cities);
+        const eventRef = this.pluginRef.app.workspace.on(
+          "weather-widget:rerender" as "active-leaf-change",
+          () => {
+            this.widget?.update();
+          },
+        );
+        this.registerEvent(eventRef);
       }
 
       onunload(): void {
-        this.containerEl.classList.remove("ow-widget-host");
-        this.containerEl.replaceChildren();
-        delete this.containerEl.dataset.owInlineCities;
-        delete this.containerEl.dataset.owRowHeight;
+        this.pluginRef.unregisterInlineCities(this.inlineKey);
+        this.widget?.unmount();
+        this.widget = null;
       }
-    })(element));
+    })(element, plugin));
 
     const trimmedSource = source.trim();
     if (parsed.errors.length > 0) {

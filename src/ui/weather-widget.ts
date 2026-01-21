@@ -448,9 +448,6 @@ export interface WeatherWidgetOptions {
   rowHeight?: number | null;
 }
 
-const INLINE_CITIES_DATA_KEY = "owInlineCities";
-const ROW_HEIGHT_DATA_KEY = "owRowHeight";
-
 export class WeatherWidget {
   private host: HTMLElement | null = null;
   private readonly inlineCities: CityLocation[];
@@ -483,42 +480,13 @@ export class WeatherWidget {
     if (host) {
       host.classList.remove("ow-widget-host");
       host.replaceChildren();
-      delete host.dataset[INLINE_CITIES_DATA_KEY];
-      delete host.dataset[ROW_HEIGHT_DATA_KEY];
     }
-  this.host = null;
-}
-  static readHostOptions(host: HTMLElement): WeatherWidgetOptions {
-    const rawInline = host.dataset[INLINE_CITIES_DATA_KEY];
-    let inlineCities: CityLocation[] | undefined;
-    if (rawInline && rawInline.trim().length > 0) {
-      try {
-        const parsed = JSON.parse(rawInline) as CityLocation[];
-        if (Array.isArray(parsed)) {
-          inlineCities = parsed
-            .filter((city) => city && typeof city.id === "string")
-            .map((city) => ({ ...city }));
-        }
-      } catch (error) {
-        console.warn("WeatherWidget: failed to parse inline cities dataset", error);
-      }
-    }
-    const rawRowHeight = host.dataset[ROW_HEIGHT_DATA_KEY];
-    const parsedHeight = rawRowHeight ? Number.parseFloat(rawRowHeight) : null;
-    const rowHeight =
-      typeof parsedHeight === "number" && Number.isFinite(parsedHeight) ? parsedHeight : null;
-    return { inlineCities, rowHeight };
-  }
-  static renderIntoHost(plugin: WeatherPlugin, host: HTMLElement, options: WeatherWidgetOptions = {}): void {
-    const widget = new WeatherWidget(plugin, options);
-    widget.host = host;
-    widget.render();
+    this.host = null;
   }
   private render(): void {
     if (!this.host) {
       return;
     }
-    this.persistHostMetadata();
     this.host.classList.add("ow-widget-host");
     const strings = this.plugin.getStrings();
     const settings = this.plugin.settings;
@@ -705,21 +673,6 @@ export class WeatherWidget {
     } else {
       target.style.removeProperty("--ow-row-min-height");
       target.style.removeProperty("--ow-row-padding-y");
-    }
-  }
-  private persistHostMetadata(): void {
-    if (!this.host) {
-      return;
-    }
-    if (this.inlineCities.length > 0) {
-      this.host.dataset[INLINE_CITIES_DATA_KEY] = JSON.stringify(this.inlineCities);
-    } else {
-      delete this.host.dataset[INLINE_CITIES_DATA_KEY];
-    }
-    if (this.customRowHeight != null) {
-      this.host.dataset[ROW_HEIGHT_DATA_KEY] = this.customRowHeight.toString();
-    } else {
-      delete this.host.dataset[ROW_HEIGHT_DATA_KEY];
     }
   }
 }
