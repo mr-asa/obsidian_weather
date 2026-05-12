@@ -73,15 +73,10 @@
 
 ### Из каталога Obsidian (когда опубликуется)
 
-<details>
-<summary>Вы сможете активировать плагин напрямую из Obsidian, когда он появится в каталоге</summary>
-
 - Откройте *Settings -> Community plugins*
 - Нажмите **Browse**
 - Найдите «Weather Widget»
 - Установите и включите
-
-</details>
 
 ### Ручная установка
 

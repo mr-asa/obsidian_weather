@@ -68,15 +68,10 @@ This project grew from that experiment: a configurable widget that renders the s
 
 ### From Obsidian (when published)
 
-<details>
-<summary>You will be able to install directly once the plugin is in the community catalogue</summary>
-
 - Open *Settings → Community plugins*
 - Click **Browse**
 - Search for “Weather Widget”
 - Install and enable the plugin
-
-</details>
 
 ### Manual installation
 
